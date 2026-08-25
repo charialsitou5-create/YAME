@@ -43,8 +43,23 @@ class AppStrings {
   static const errorNetwork = 'Problème de connexion, réessayez.';
   static const errorGeneric = 'Une erreur est survenue, réessayez.';
 
-  // Accueil
+  // Accueil (chauffeur — la course/réservation n'est pas encore construite côté chauffeur)
   static const homeWelcome = 'Bienvenue';
-  static const homeComingSoon = 'La réservation de course arrive bientôt.';
+  static const homeComingSoon = 'Les courses à accepter arriveront bientôt ici.';
   static const logout = 'Se déconnecter';
+
+  // Réservation de course (client)
+  static const bookingSetPickup = 'Définir le départ';
+  static const bookingSetDestination = 'Définir la destination';
+  static const bookingPickupLabel = 'Départ';
+  static const bookingDestinationLabel = 'Destination';
+  static const bookingPickupHint = 'Touchez la carte pour définir le départ';
+  static const bookingDestinationHint = 'Touchez la carte pour définir la destination';
+  static const bookingVehicleCar = 'Voiture';
+  static const bookingVehicleMoto = 'Moto';
+  static const bookingCta = 'Rechercher un chauffeur';
+  static const bookingComingSoon = 'La mise en relation avec un chauffeur arrive bientôt.';
+  static const bookingLocationDenied =
+      'Autorisez l\'accès à la position pour centrer la carte sur vous.';
+  static const bookingLocatingMe = 'Localisation en cours…';
 }
