@@ -22,7 +22,7 @@ class AppStrings {
   static const signupTitle = 'Créer un compte';
   static const fieldName = 'Nom complet';
   static const fieldPhone = 'Numéro de téléphone';
-  static const fieldEmailOptional = 'Adresse e-mail (optionnel)';
+  static const fieldEmail = 'Adresse e-mail';
   static const fieldPassword = 'Mot de passe';
   static const signupCta = 'S\'inscrire';
   static const signupHasAccount = 'Déjà un compte ? Se connecter';
@@ -37,6 +37,11 @@ class AppStrings {
   static const errorPhoneInvalid = 'Numéro de téléphone invalide.';
   static const errorEmailInvalid = 'Adresse e-mail invalide.';
   static const errorPasswordTooShort = 'Le mot de passe doit contenir au moins 6 caractères.';
+  static const errorEmailInUse = 'Un compte existe déjà avec cette adresse e-mail.';
+  static const errorUserNotFound = 'Aucun compte ne correspond à cette adresse e-mail.';
+  static const errorWrongPassword = 'Mot de passe incorrect.';
+  static const errorNetwork = 'Problème de connexion, réessayez.';
+  static const errorGeneric = 'Une erreur est survenue, réessayez.';
 
   // Accueil
   static const homeWelcome = 'Bienvenue';

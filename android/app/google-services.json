@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "276529399832",
+    "project_id": "yame-pointe-noire-ab112",
+    "storage_bucket": "yame-pointe-noire-ab112.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:276529399832:android:43ea3468cfe13968951b6d",
+        "android_client_info": {
+          "package_name": "com.yame.yame"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDDsrc_6wmyN31h9Y6z5uyJHc-QzzUiYLY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

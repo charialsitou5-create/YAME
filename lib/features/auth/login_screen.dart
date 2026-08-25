@@ -1,9 +1,10 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_strings.dart';
 import '../../routes/app_routes.dart';
 
-/// Connexion par téléphone/e-mail + mot de passe.
+/// Connexion par e-mail + mot de passe.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -13,14 +14,15 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _identifierController = TextEditingController();
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
   bool _submitting = false;
+  String? _errorMessage;
 
   @override
   void dispose() {
-    _identifierController.dispose();
+    _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -28,16 +30,42 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _submitting = true);
+    setState(() {
+      _submitting = true;
+      _errorMessage = null;
+    });
 
-    // TODO(yame): remplacer par un vrai appel Firebase Auth
-    // (signInWithEmailAndPassword ou connexion par téléphone) puis charger
-    // le profil AppUser depuis Firestore `users/{uid}`.
-    await Future.delayed(const Duration(milliseconds: 900));
+    try {
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
 
-    if (!mounted) return;
-    setState(() => _submitting = false);
-    Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.home, (route) => false);
+      if (!mounted) return;
+      Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.home, (route) => false);
+    } on FirebaseAuthException catch (e) {
+      setState(() => _errorMessage = _messageForAuthError(e));
+    } catch (_) {
+      setState(() => _errorMessage = AppStrings.errorGeneric);
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  String _messageForAuthError(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'user-not-found':
+      case 'invalid-credential':
+        return AppStrings.errorUserNotFound;
+      case 'wrong-password':
+        return AppStrings.errorWrongPassword;
+      case 'invalid-email':
+        return AppStrings.errorEmailInvalid;
+      case 'network-request-failed':
+        return AppStrings.errorNetwork;
+      default:
+        return AppStrings.errorGeneric;
+    }
   }
 
   @override
@@ -53,9 +81,9 @@ class _LoginScreenState extends State<LoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 TextFormField(
-                  controller: _identifierController,
+                  controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(labelText: AppStrings.fieldPhone),
+                  decoration: const InputDecoration(labelText: AppStrings.fieldEmail),
                   validator: (value) =>
                       (value == null || value.trim().isEmpty) ? AppStrings.errorRequired : null,
                 ),
@@ -67,6 +95,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   validator: (value) =>
                       (value == null || value.isEmpty) ? AppStrings.errorRequired : null,
                 ),
+                if (_errorMessage != null) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    _errorMessage!,
+                    style: TextStyle(color: Theme.of(context).colorScheme.error),
+                  ),
+                ],
                 const SizedBox(height: 28),
                 ElevatedButton(
                   onPressed: _submitting ? null : _submit,
