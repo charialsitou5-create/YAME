@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 
 import '../../models/app_user.dart';
 import '../../models/user_role.dart';
-import '../booking/booking_screen.dart';
 import '../driver/driver_home_screen.dart';
+import 'client_shell.dart';
 
 /// Aiguille vers l'écran de réservation (client) ou l'écran chauffeur,
 /// selon le rôle du profil chargé depuis Firestore.
@@ -25,7 +25,7 @@ class HomeScreen extends StatelessWidget {
 
         final user = AppUser.fromMap(uid, data);
         if (user.role == UserRole.client) {
-          return const BookingScreen();
+          return ClientShell(name: user.name);
         }
         return DriverHomeScreen(role: user.role, driverName: user.name);
       },

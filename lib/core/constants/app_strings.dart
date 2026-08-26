@@ -5,32 +5,35 @@ class AppStrings {
   static const appName = 'Yame';
   static const slogan = 'Votre trajet, autrement.';
 
-  // Onboarding
-  static const onboardingCta = 'Commencer';
-
   // Sélection de profil
-  static const roleSelectionTitle = 'Qui êtes-vous ?';
-  static const roleSelectionSubtitle = 'Choisissez votre profil pour continuer.';
   static const roleClient = 'Client';
-  static const roleClientDescription = 'Je réserve une course en voiture ou en moto.';
-  static const roleDriverCar = 'Chauffeur — Voiture';
-  static const roleDriverCarDescription = 'Je conduis une voiture et j\'accepte des courses.';
-  static const roleDriverMoto = 'Chauffeur — Moto';
-  static const roleDriverMotoDescription = 'Je conduis une moto et j\'accepte des courses.';
+  static const roleClientDescription = 'Réservez vos courses en quelques secondes';
+  static const roleDriverCar = 'Chauffeur Voiture';
+  static const roleDriverCarDescription = 'Rejoignez la communauté Yame et gagnez de l\'argent';
+  static const roleDriverMoto = 'Chauffeur Moto';
+  static const roleDriverMotoDescription = 'Rejoignez la communauté Yame et gagnez de l\'argent';
 
   // Inscription
-  static const signupTitle = 'Créer un compte';
+  static const signupHeadline = 'Créer votre compte';
+  static const signupSubtitle = 'Inscrivez-vous pour commencer vos trajets.';
+  static const signupSkip = 'Passer';
   static const fieldName = 'Nom complet';
   static const fieldPhone = 'Numéro de téléphone';
   static const fieldEmail = 'Adresse e-mail';
   static const fieldPassword = 'Mot de passe';
   static const signupCta = 'S\'inscrire';
   static const signupHasAccount = 'Déjà un compte ? Se connecter';
+  static const orDivider = 'ou';
+  static const continueWithGoogle = 'Continuer avec Google';
+  static const continueWithFacebook = 'Continuer avec Facebook';
+  static const socialAuthComingSoon = 'Bientôt disponible.';
 
   // Connexion
-  static const loginTitle = 'Connexion';
+  static const loginHeadline = 'Content de vous revoir';
+  static const loginSubtitle = 'Connectez-vous pour continuer.';
   static const loginCta = 'Se connecter';
-  static const loginNoAccount = 'Pas encore de compte ? S\'inscrire';
+  static const loginNoAccount = 'Pas encore de compte ? ';
+  static const loginSignupLink = 'S\'inscrire';
 
   // Validation
   static const errorRequired = 'Ce champ est obligatoire.';
@@ -47,6 +50,25 @@ class AppStrings {
   static const homeWelcome = 'Bienvenue';
   static const homeComingSoon = 'Les courses à accepter arriveront bientôt ici.';
   static const logout = 'Se déconnecter';
+
+  // Accueil (client)
+  static const homeGreeting = 'Bonjour,';
+  static const homeQuestion = 'Où allons-nous aujourd\'hui ?';
+  static const homePromoTitle = 'Paiements faciles et sécurisés avec Yame';
+  static const homePromoBody =
+      'Payez vos courses par mobile money, virement bancaire ou en espèces en toute sécurité.';
+  static const homeServiceTitle = 'Choisissez votre type de service';
+  static const homeServiceCarTitle = 'Yame Voiture';
+  static const homeServiceCarBody = 'Rapide, abordable et confortable.';
+  static const homeServiceMotoTitle = 'Yame Moto';
+  static const homeServiceMotoBody = 'Agile et rapide, idéal pour éviter les bouchons.';
+
+  // Navigation
+  static const navHome = 'Accueil';
+  static const navRides = 'Courses';
+  static const navMessages = 'Messages';
+  static const navProfile = 'Profil';
+  static const comingSoonTab = 'Cette section arrive bientôt.';
 
   // Réservation de course (client)
   static const bookingSetPickup = 'Définir le départ';

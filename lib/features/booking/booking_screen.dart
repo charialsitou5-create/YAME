@@ -18,7 +18,9 @@ const _pointeNoireCenter = LatLng(-4.7889, 11.8656);
 enum _PickMode { pickup, destination }
 
 class BookingScreen extends StatefulWidget {
-  const BookingScreen({super.key});
+  const BookingScreen({super.key, this.initialVehicleType = VehicleType.car});
+
+  final VehicleType initialVehicleType;
 
   @override
   State<BookingScreen> createState() => _BookingScreenState();
@@ -34,7 +36,7 @@ class _BookingScreenState extends State<BookingScreen> {
   String? _destinationAddress;
 
   _PickMode _pickMode = _PickMode.pickup;
-  VehicleType _vehicleType = VehicleType.car;
+  late VehicleType _vehicleType = widget.initialVehicleType;
 
   bool _locating = true;
   String? _locationError;
