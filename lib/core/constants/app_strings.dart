@@ -166,6 +166,33 @@ class AppStrings {
   static const wizardErrorPhotoMissing = 'Veuillez ajouter au moins les photos principales.';
   static const wizardImagePickError = 'Impossible d\'ouvrir la galerie.';
 
+  // Profil (client)
+  static const profileMember = 'Membre Yame';
+  static const profileActivities = 'Mes activités';
+  static const profileStatCourses = 'Courses';
+  static const profileStatReservations = 'Réservations';
+  static const profileStatFavorites = 'Favoris';
+  static const profileStatPayments = 'Paiements';
+  static const profilePersonalInfo = 'Informations personnelles';
+  static const profilePersonalInfoSubtitle = 'Gérez vos informations';
+  static const profilePaymentMethods = 'Moyens de paiement';
+  static const profilePaymentMethodsSubtitle = 'Carte ou mobile money';
+  static const profileAddresses = 'Adresses enregistrées';
+  static const profileAddressesSubtitle = 'Maison, travail, autres...';
+  static const profileInviteFriend = 'Inviter un ami';
+  static const profileInviteFriendSubtitle = 'Gagnez des bonus';
+  static const profileSettings = 'Paramètres';
+  static const profileSettingsSubtitle = 'Notifications, langue, confidentialité';
+  static const profileHelp = 'Aide & Support';
+  static const profileHelpSubtitle = 'FAQ, contactez-nous';
+  static const profileAbout = 'À propos de Yame';
+  static const profileAboutVersion = 'Version 1.0.0';
+  static const profilePremiumTitle = 'Yame Premium';
+  static const profilePremiumBody =
+      'Profitez d\'avantages exclusifs et d\'un service prioritaire.';
+  static const profilePremiumCta = 'Découvrir';
+  static const profileLogout = 'Se déconnecter';
+
   // Recharge de compte (chauffeurs)
   static const rechargeTitle = 'Recharger mon compte';
   static const rechargeCurrentBalance = 'Solde actuel';

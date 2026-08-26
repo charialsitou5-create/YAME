@@ -6,6 +6,7 @@ import '../../models/vehicle_type.dart';
 import '../booking/booking_screen.dart';
 import 'client_home_tab.dart';
 import 'coming_soon_tab.dart';
+import 'profil_screen.dart';
 
 /// Coque avec barre de navigation pour l'espace client :
 /// Accueil / Courses / Messages / Profil.
@@ -35,7 +36,7 @@ class _ClientShellState extends State<ClientShell> {
       ClientHomeTab(name: widget.name, onSelectVehicle: _openBookingWith),
       BookingScreen(key: ValueKey(_vehicleType), initialVehicleType: _vehicleType),
       const ComingSoonTab(title: AppStrings.navMessages, icon: Icons.chat_bubble_outline_rounded),
-      const ComingSoonTab(title: AppStrings.navProfile, icon: Icons.person_outline_rounded),
+      const ProfilScreen(),
     ];
 
     return Scaffold(
