@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
@@ -6,6 +7,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../core/constants/app_strings.dart';
 import '../../core/theme/app_colors.dart';
+import '../../models/ride_request.dart';
 import '../../models/vehicle_type.dart';
 import '../../routes/app_routes.dart';
 
@@ -36,6 +38,9 @@ class _BookingScreenState extends State<BookingScreen> {
 
   bool _locating = true;
   String? _locationError;
+
+  String? _activeRequestId;
+  bool _submittingRequest = false;
 
   @override
   void initState() {
@@ -128,12 +133,52 @@ class _BookingScreenState extends State<BookingScreen> {
     Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.onboarding, (route) => false);
   }
 
-  void _requestDriver() {
-    // TODO(yame): remplacer par un vrai appel qui crée une demande de course
-    // dans Firestore et déclenche la recherche d'un chauffeur à proximité.
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text(AppStrings.bookingComingSoon)),
-    );
+  Future<void> _requestDriver() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null || _pickupPosition == null || _destinationPosition == null) return;
+
+    setState(() => _submittingRequest = true);
+    try {
+      final profile = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final clientName = profile.data()?['name'] as String? ?? '';
+
+      final request = RideRequest(
+        clientUid: user.uid,
+        clientName: clientName,
+        pickup: _pickupPosition!,
+        pickupAddress: _pickupAddress,
+        destination: _destinationPosition!,
+        destinationAddress: _destinationAddress,
+        vehicleType: _vehicleType,
+        status: RideStatus.searching,
+      );
+      final doc = await FirebaseFirestore.instance
+          .collection('ride_requests')
+          .add(request.toMap());
+
+      if (!mounted) return;
+      setState(() => _activeRequestId = doc.id);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.bookingRequestError)),
+      );
+    } finally {
+      if (mounted) setState(() => _submittingRequest = false);
+    }
+  }
+
+  Future<void> _cancelRequest() async {
+    final id = _activeRequestId;
+    if (id == null) return;
+    await FirebaseFirestore.instance
+        .collection('ride_requests')
+        .doc(id)
+        .update({'status': RideStatus.cancelled.firestoreValue});
+  }
+
+  void _startNewBooking() {
+    setState(() => _activeRequestId = null);
   }
 
   @override
@@ -208,18 +253,39 @@ class _BookingScreenState extends State<BookingScreen> {
           ),
           Align(
             alignment: Alignment.bottomCenter,
-            child: _BookingPanel(
-              pickMode: _pickMode,
-              vehicleType: _vehicleType,
-              pickupAddress: _pickupAddress,
-              destinationAddress: _destinationAddress,
-              hasPickup: _pickupPosition != null,
-              hasDestination: _destinationPosition != null,
-              canRequest: canRequest,
-              onModeChanged: (mode) => setState(() => _pickMode = mode),
-              onVehicleChanged: (type) => setState(() => _vehicleType = type),
-              onRequest: _requestDriver,
-            ),
+            child: _activeRequestId == null
+                ? _BookingPanel(
+                    pickMode: _pickMode,
+                    vehicleType: _vehicleType,
+                    pickupAddress: _pickupAddress,
+                    destinationAddress: _destinationAddress,
+                    hasPickup: _pickupPosition != null,
+                    hasDestination: _destinationPosition != null,
+                    canRequest: canRequest,
+                    submitting: _submittingRequest,
+                    onModeChanged: (mode) => setState(() => _pickMode = mode),
+                    onVehicleChanged: (type) => setState(() => _vehicleType = type),
+                    onRequest: _requestDriver,
+                  )
+                : StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                    stream: FirebaseFirestore.instance
+                        .collection('ride_requests')
+                        .doc(_activeRequestId)
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      final data = snapshot.data?.data();
+                      final status = data != null
+                          ? RideStatus.fromFirestoreValue(data['status'] as String)
+                          : RideStatus.searching;
+                      final driverName = data?['driverName'] as String?;
+                      return _RideStatusPanel(
+                        status: status,
+                        driverName: driverName,
+                        onCancel: _cancelRequest,
+                        onNewBooking: _startNewBooking,
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -263,6 +329,7 @@ class _BookingPanel extends StatelessWidget {
     required this.hasPickup,
     required this.hasDestination,
     required this.canRequest,
+    required this.submitting,
     required this.onModeChanged,
     required this.onVehicleChanged,
     required this.onRequest,
@@ -275,6 +342,7 @@ class _BookingPanel extends StatelessWidget {
   final bool hasPickup;
   final bool hasDestination;
   final bool canRequest;
+  final bool submitting;
   final ValueChanged<_PickMode> onModeChanged;
   final ValueChanged<VehicleType> onVehicleChanged;
   final VoidCallback onRequest;
@@ -339,10 +407,86 @@ class _BookingPanel extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           ElevatedButton(
-            onPressed: canRequest ? onRequest : null,
-            child: const Text(AppStrings.bookingCta),
+            onPressed: (canRequest && !submitting) ? onRequest : null,
+            child: submitting
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text(AppStrings.bookingCta),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _RideStatusPanel extends StatelessWidget {
+  const _RideStatusPanel({
+    required this.status,
+    required this.driverName,
+    required this.onCancel,
+    required this.onNewBooking,
+  });
+
+  final RideStatus status;
+  final String? driverName;
+  final VoidCallback onCancel;
+  final VoidCallback onNewBooking;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 28),
+      decoration: const BoxDecoration(
+        color: AppColors.surfaceElevated,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: switch (status) {
+          RideStatus.searching => [
+              const Row(
+                children: [
+                  SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.accent),
+                  ),
+                  SizedBox(width: 14),
+                  Expanded(child: Text(AppStrings.bookingSearching)),
+                ],
+              ),
+              const SizedBox(height: 20),
+              OutlinedButton(onPressed: onCancel, child: const Text(AppStrings.bookingCancel)),
+            ],
+          RideStatus.accepted => [
+              Text(AppStrings.bookingAccepted, style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 6),
+              Text(
+                '${driverName?.isNotEmpty == true ? driverName : AppStrings.driverClient} ${AppStrings.bookingDriverOnTheWay}',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ],
+          RideStatus.completed => [
+              Text(AppStrings.homeWelcome, style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: onNewBooking,
+                child: const Text(AppStrings.bookingNewRequest),
+              ),
+            ],
+          RideStatus.cancelled => [
+              Text(AppStrings.bookingCancelled, style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: onNewBooking,
+                child: const Text(AppStrings.bookingNewRequest),
+              ),
+            ],
+        },
       ),
     );
   }

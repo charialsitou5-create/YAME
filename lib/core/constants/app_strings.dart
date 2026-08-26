@@ -58,8 +58,28 @@ class AppStrings {
   static const bookingVehicleCar = 'Voiture';
   static const bookingVehicleMoto = 'Moto';
   static const bookingCta = 'Rechercher un chauffeur';
-  static const bookingComingSoon = 'La mise en relation avec un chauffeur arrive bientôt.';
   static const bookingLocationDenied =
       'Autorisez l\'accès à la position pour centrer la carte sur vous.';
   static const bookingLocatingMe = 'Localisation en cours…';
+  static const bookingSearching = 'Recherche d\'un chauffeur…';
+  static const bookingCancel = 'Annuler';
+  static const bookingCancelled = 'Course annulée.';
+  static const bookingAccepted = 'Chauffeur trouvé';
+  static const bookingDriverOnTheWay = 'arrive pour vous prendre en charge.';
+  static const bookingNewRequest = 'Nouvelle réservation';
+  static const bookingRequestError = 'Impossible de lancer la recherche, réessayez.';
+
+  // Espace chauffeur
+  static const driverOnline = 'En ligne';
+  static const driverOffline = 'Hors ligne';
+  static const driverGoOnline = 'Passez en ligne pour recevoir des courses.';
+  static const driverNoRequests = 'Aucune demande de course pour l\'instant.';
+  static const driverAccept = 'Accepter';
+  static const driverAcceptedRide = 'Course en cours';
+  static const driverClient = 'Client';
+  static const driverPickup = 'Départ';
+  static const driverDestination = 'Destination';
+  static const driverComplete = 'Terminer la course';
+  static const driverCancelRide = 'Annuler la course';
+  static const driverRequestTaken = 'Cette course vient d\'être prise par un autre chauffeur.';
 }
