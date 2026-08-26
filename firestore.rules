@@ -7,6 +7,12 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
+    // Fiche véhicule d'un chauffeur (assistant d'inscription en 3 étapes,
+    // solde du portefeuille) : lisible/modifiable uniquement par lui-même.
+    match /driver_profiles/{driverId} {
+      allow read, write: if request.auth != null && request.auth.uid == driverId;
+    }
+
     // Demandes de course : tout utilisateur connecté peut lire (un chauffeur
     // doit voir les demandes en recherche), mais l'écriture est restreinte
     // selon qui on est et l'état de transition demandé.

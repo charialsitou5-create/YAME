@@ -1,4 +1,5 @@
 import '../core/constants/app_strings.dart';
+import 'vehicle_type.dart';
 
 /// Les trois profils possibles sur Yame.
 enum UserRole {
@@ -26,6 +27,13 @@ enum UserRole {
       };
 
   bool get isDriver => this != UserRole.client;
+
+  /// Type de véhicule associé à ce profil chauffeur (invalide pour un client).
+  VehicleType get vehicleType => switch (this) {
+        UserRole.chauffeurVoiture => VehicleType.car,
+        UserRole.chauffeurMoto => VehicleType.moto,
+        UserRole.client => throw StateError('Le profil client n\'a pas de véhicule.'),
+      };
 
   static UserRole fromFirestoreValue(String value) {
     return UserRole.values.firstWhere(

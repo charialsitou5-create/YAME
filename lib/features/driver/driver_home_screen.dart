@@ -8,6 +8,7 @@ import '../../models/ride_request.dart';
 import '../../models/user_role.dart';
 import '../../models/vehicle_type.dart';
 import '../../routes/app_routes.dart';
+import 'recharge_screen.dart';
 
 /// Écran chauffeur : bascule en ligne/hors ligne, liste des demandes de
 /// course ouvertes pour son type de véhicule, et suivi de la course acceptée.
@@ -25,8 +26,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   bool _online = false;
   String? _activeRideId;
 
-  VehicleType get _vehicleType =>
-      widget.role == UserRole.chauffeurMoto ? VehicleType.moto : VehicleType.car;
+  VehicleType get _vehicleType => widget.role.vehicleType;
 
   Future<void> _logout() async {
     await FirebaseAuth.instance.signOut();
@@ -76,37 +76,77 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(AppStrings.appName),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout_rounded),
-            tooltip: AppStrings.logout,
-            onPressed: _logout,
-          ),
-        ],
-      ),
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.fromLTRB(24, 8, 20, 0),
               child: Row(
                 children: [
                   Expanded(
-                    child: Text(
-                      _online ? AppStrings.driverOnline : AppStrings.driverOffline,
-                      style: Theme.of(context).textTheme.titleLarge,
+                    child: Text.rich(
+                      TextSpan(
+                        children: [
+                          const TextSpan(text: '${AppStrings.homeGreeting} '),
+                          TextSpan(
+                            text: widget.driverName,
+                            style: const TextStyle(color: AppColors.accentBright),
+                          ),
+                        ],
+                      ),
+                      style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 24),
                     ),
                   ),
-                  Switch(
-                    value: _online,
-                    activeThumbColor: AppColors.accent,
-                    onChanged: _activeRideId == null
-                        ? (value) => setState(() => _online = value)
-                        : null,
+                  IconButton(
+                    onPressed: () =>
+                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RechargeScreen())),
+                    icon: const Icon(Icons.account_balance_wallet_outlined),
+                    tooltip: AppStrings.driverWallet,
+                  ),
+                  IconButton(
+                    onPressed: _logout,
+                    icon: const Icon(Icons.logout_rounded),
+                    tooltip: AppStrings.logout,
                   ),
                 ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceElevated,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: _online ? AppColors.success : AppColors.textDisabled,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        _online ? AppStrings.driverOnline : AppStrings.driverOffline,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 16),
+                      ),
+                    ),
+                    Switch(
+                      value: _online,
+                      activeThumbColor: AppColors.accent,
+                      onChanged: _activeRideId == null
+                          ? (value) => setState(() => _online = value)
+                          : null,
+                    ),
+                  ],
+                ),
               ),
             ),
             Expanded(
@@ -134,12 +174,26 @@ class _OfflineNotice extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.power_settings_new, size: 56, color: AppColors.textSecondary),
-            const SizedBox(height: 16),
+            Container(
+              width: 72,
+              height: 72,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceElevated,
+                shape: BoxShape.circle,
+                border: Border.all(color: AppColors.border),
+              ),
+              child: const Icon(
+                Icons.power_settings_new_rounded,
+                size: 32,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 20),
             Text(
               AppStrings.driverGoOnline,
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium,
+              style: Theme.of(context).textTheme.bodyLarge,
             ),
           ],
         ),
@@ -168,10 +222,17 @@ class _PendingRequestsList extends StatelessWidget {
           return Center(
             child: Padding(
               padding: const EdgeInsets.all(32),
-              child: Text(
-                AppStrings.driverNoRequests,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.search_rounded, size: 40, color: AppColors.textSecondary),
+                  const SizedBox(height: 16),
+                  Text(
+                    AppStrings.driverNoRequests,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ],
               ),
             ),
           );
@@ -183,37 +244,43 @@ class _PendingRequestsList extends StatelessWidget {
           separatorBuilder: (_, _) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
             final request = RideRequest.fromDoc(docs[index]);
-            return Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      request.clientName.isNotEmpty ? request.clientName : AppStrings.driverClient,
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 10),
-                    _AddressRow(
-                      icon: Icons.circle,
-                      iconColor: AppColors.success,
-                      label: AppStrings.driverPickup,
-                      address: request.pickupAddress,
-                    ),
-                    const SizedBox(height: 6),
-                    _AddressRow(
-                      icon: Icons.location_on,
-                      iconColor: AppColors.accent,
-                      label: AppStrings.driverDestination,
-                      address: request.destinationAddress,
-                    ),
-                    const SizedBox(height: 14),
-                    ElevatedButton(
+            return Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceElevated,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    request.clientName.isNotEmpty ? request.clientName : AppStrings.driverClient,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 12),
+                  _AddressRow(
+                    icon: Icons.circle,
+                    iconColor: AppColors.success,
+                    label: AppStrings.driverPickup,
+                    address: request.pickupAddress,
+                  ),
+                  const SizedBox(height: 8),
+                  _AddressRow(
+                    icon: Icons.location_on,
+                    iconColor: AppColors.accent,
+                    label: AppStrings.driverDestination,
+                    address: request.destinationAddress,
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
                       onPressed: () => onAccept(request),
                       child: const Text(AppStrings.driverAccept),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             );
           },
@@ -243,35 +310,65 @@ class _ActiveRide extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(AppStrings.driverAcceptedRide, style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 16),
-              Text(
-                request.clientName.isNotEmpty ? request.clientName : AppStrings.driverClient,
-                style: Theme.of(context).textTheme.bodyLarge,
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppColors.accent.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  AppStrings.driverAcceptedRide,
+                  style: const TextStyle(color: AppColors.accentBright, fontWeight: FontWeight.w700),
+                ),
               ),
-              const SizedBox(height: 14),
-              _AddressRow(
-                icon: Icons.circle,
-                iconColor: AppColors.success,
-                label: AppStrings.driverPickup,
-                address: request.pickupAddress,
-              ),
-              const SizedBox(height: 6),
-              _AddressRow(
-                icon: Icons.location_on,
-                iconColor: AppColors.accent,
-                label: AppStrings.driverDestination,
-                address: request.destinationAddress,
+              const SizedBox(height: 18),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceElevated,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      request.clientName.isNotEmpty ? request.clientName : AppStrings.driverClient,
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 14),
+                    _AddressRow(
+                      icon: Icons.circle,
+                      iconColor: AppColors.success,
+                      label: AppStrings.driverPickup,
+                      address: request.pickupAddress,
+                    ),
+                    const SizedBox(height: 8),
+                    _AddressRow(
+                      icon: Icons.location_on,
+                      iconColor: AppColors.accent,
+                      label: AppStrings.driverDestination,
+                      address: request.destinationAddress,
+                    ),
+                  ],
+                ),
               ),
               const Spacer(),
-              ElevatedButton(
-                onPressed: () => onEnd(RideStatus.completed),
-                child: const Text(AppStrings.driverComplete),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => onEnd(RideStatus.completed),
+                  child: const Text(AppStrings.driverComplete),
+                ),
               ),
               const SizedBox(height: 10),
-              OutlinedButton(
-                onPressed: () => onEnd(RideStatus.cancelled),
-                child: const Text(AppStrings.driverCancelRide),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () => onEnd(RideStatus.cancelled),
+                  child: const Text(AppStrings.driverCancelRide),
+                ),
               ),
             ],
           ),
@@ -299,7 +396,10 @@ class _AddressRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 12, color: iconColor),
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Icon(icon, size: 12, color: iconColor),
+        ),
         const SizedBox(width: 10),
         Expanded(
           child: Text(

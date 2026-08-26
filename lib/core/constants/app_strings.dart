@@ -104,4 +104,74 @@ class AppStrings {
   static const driverComplete = 'Terminer la course';
   static const driverCancelRide = 'Annuler la course';
   static const driverRequestTaken = 'Cette course vient d\'être prise par un autre chauffeur.';
+  static const driverWallet = 'Portefeuille';
+
+  // Inscription chauffeur — écran d'introduction
+  static const driverIntroPrefix = 'Vous êtes';
+  static const driverIntroSubtitle =
+      'Complétez votre inscription pour commencer à gagner de l\'argent avec Yame.';
+  static const driverIntroHowItWorks = 'Comment ça fonctionne ?';
+  static const driverIntroStep1 =
+      'Rechargez votre compte Yame au guichet, par mobile money ou virement bancaire.';
+  static const driverIntroStep2 = 'Recevez des courses et transportez en toute sécurité.';
+  static const driverIntroStep3 = 'À chaque course, 15 % de commission sont prélevés par Yame.';
+  static const driverIntroStep4 = 'Notification automatique quand votre solde ≤ 1 000 FCFA.';
+  static const driverIntroCta = 'Suivant';
+
+  // Inscription chauffeur — assistant véhicule (3 étapes)
+  static const wizardStepVehicleInfo = 'Informations\ndu véhicule';
+  static const wizardStepMotoInfo = 'Informations\nde la moto';
+  static const wizardStepVehicleImages = 'Images\ndu véhicule';
+  static const wizardStepMotoImages = 'Images\nde la moto';
+  static const wizardStepDocuments = 'Documents';
+  static const wizardVehicleInfoTitle = 'Informations du véhicule';
+  static const wizardMotoInfoTitle = 'Informations de la moto';
+  static const wizardVehicleInfoSubtitle = 'Veuillez renseigner les informations de votre véhicule';
+  static const wizardMotoInfoSubtitle = 'Veuillez renseigner les informations de votre moto';
+  static const wizardFieldModelCar = 'Modèle du véhicule';
+  static const wizardFieldModelCarHint = 'Ex : Corolla, Tucson, Sportage...';
+  static const wizardFieldModelMoto = 'Modèle de la moto';
+  static const wizardFieldModelMotoHint = 'Ex : CB125, NMAX, PCX...';
+  static const wizardFieldYear = 'Année de mise en circulation';
+  static const wizardFieldYearHint = 'Ex : 2020';
+  static const wizardFieldColor = 'Couleur du véhicule';
+  static const wizardFieldColorHint = 'Ex : Noir, Blanc, Gris...';
+  static const wizardFieldPlateCar = 'Numéro d\'immatriculation';
+  static const wizardFieldPlateCarHint = 'Ex : AB-123-CD';
+  static const wizardFieldPlateMotoHint = 'Ex : 12345-AB-67';
+  static const wizardFieldSeats = 'Nombre de places';
+  static const wizardFieldSeatsHint = 'Ex : 4, 5, 7...';
+  static const wizardFieldSeatsMotoHint = 'Ex : 1, 2...';
+  static const wizardNext = 'Suivant';
+  static const wizardSubmit = 'Soumettre';
+  static const wizardImagesVehicleTitle = 'Images du véhicule';
+  static const wizardImagesMotoTitle = 'Images de la moto';
+  static const wizardImagesVehicleSubtitle = 'Veuillez ajouter des photos claires de votre véhicule';
+  static const wizardImagesMotoSubtitle = 'Veuillez ajouter des photos claires de votre moto';
+  static const wizardPhotoFront = 'Face avant';
+  static const wizardPhotoBack = 'Face arrière';
+  static const wizardPhotoLeft = 'Côté gauche';
+  static const wizardPhotoRight = 'Côté droit';
+  static const wizardPhotoOverview = 'Vue d\'ensemble';
+  static const wizardAddPhoto = 'Ajouter une photo';
+  static const wizardDocumentsTitle = 'Documents';
+  static const wizardDocumentsSubtitle = 'Veuillez ajouter les documents suivants';
+  static const wizardDocRegistrationCar = 'Carte grise';
+  static const wizardDocRegistrationMoto = 'Carte grise (recto)';
+  static const wizardDocLicense = 'Permis de conduire';
+  static const wizardSubmitSuccess = 'Inscription envoyée, en attente de validation.';
+  static const wizardSubmitError = 'Impossible d\'enregistrer votre véhicule, réessayez.';
+  static const wizardErrorRequired = 'Ce champ est obligatoire.';
+  static const wizardErrorYearInvalid = 'Année invalide.';
+  static const wizardErrorPhotoMissing = 'Veuillez ajouter au moins les photos principales.';
+  static const wizardImagePickError = 'Impossible d\'ouvrir la galerie.';
+
+  // Recharge de compte (chauffeurs)
+  static const rechargeTitle = 'Recharger mon compte';
+  static const rechargeCurrentBalance = 'Solde actuel';
+  static const rechargeChooseMethod = 'Choisissez un moyen de recharge';
+  static const rechargeCash = 'Espèces (Guichet Yame)';
+  static const rechargeMobileMoney = 'Mobile Money';
+  static const rechargeBankTransfer = 'Virement bancaire';
+  static const rechargeNotice = 'Notification automatique quand votre solde ≤ 1 000 FCFA.';
 }

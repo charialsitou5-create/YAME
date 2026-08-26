@@ -9,6 +9,7 @@ class AppUser {
     required this.role,
     this.email,
     this.createdAt,
+    this.vehicleRegistered = false,
   });
 
   final String uid;
@@ -17,6 +18,10 @@ class AppUser {
   final String? email;
   final UserRole role;
   final DateTime? createdAt;
+
+  /// Pour un profil chauffeur : `true` une fois le véhicule/la moto
+  /// enregistré (assistant d'inscription en 3 étapes complété).
+  final bool vehicleRegistered;
 
   factory AppUser.fromMap(String uid, Map<String, dynamic> map) {
     return AppUser(
@@ -28,6 +33,7 @@ class AppUser {
       createdAt: map['createdAt'] != null
           ? DateTime.tryParse(map['createdAt'] as String)
           : null,
+      vehicleRegistered: map['vehicleRegistered'] as bool? ?? false,
     );
   }
 
@@ -38,6 +44,7 @@ class AppUser {
       if (email != null && email!.isNotEmpty) 'email': email,
       'role': role.firestoreValue,
       'createdAt': (createdAt ?? DateTime.now()).toIso8601String(),
+      'vehicleRegistered': vehicleRegistered,
     };
   }
 
@@ -46,6 +53,7 @@ class AppUser {
     String? phone,
     String? email,
     UserRole? role,
+    bool? vehicleRegistered,
   }) {
     return AppUser(
       uid: uid,
@@ -54,6 +62,7 @@ class AppUser {
       email: email ?? this.email,
       role: role ?? this.role,
       createdAt: createdAt,
+      vehicleRegistered: vehicleRegistered ?? this.vehicleRegistered,
     );
   }
 }

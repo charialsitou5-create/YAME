@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../models/app_user.dart';
 import '../../models/user_role.dart';
 import '../driver/driver_home_screen.dart';
+import '../driver/driver_intro_screen.dart';
 import 'client_shell.dart';
 
 /// Aiguille vers l'écran de réservation (client) ou l'écran chauffeur,
@@ -26,6 +27,9 @@ class HomeScreen extends StatelessWidget {
         final user = AppUser.fromMap(uid, data);
         if (user.role == UserRole.client) {
           return ClientShell(name: user.name);
+        }
+        if (!user.vehicleRegistered) {
+          return DriverIntroScreen(role: user.role);
         }
         return DriverHomeScreen(role: user.role, driverName: user.name);
       },
