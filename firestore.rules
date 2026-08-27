@@ -49,6 +49,14 @@ service cloud.firestore {
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
             ['rating', 'ratingComment', 'ratingPunctuality', 'ratingDriving', 'ratingCourtesy', 'ratingCleanliness']
           ))
+        ||
+        // le client paie sa course une fois celle-ci terminée
+        (resource.data.status == 'completed'
+          && resource.data.clientUid == request.auth.uid
+          && request.resource.data.status == 'completed'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
+            ['paymentStatus', 'paymentMethod', 'paymentAmount', 'paymentDriverId']
+          ))
       );
 
       allow delete: if false;

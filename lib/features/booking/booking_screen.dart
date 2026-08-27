@@ -10,6 +10,7 @@ import '../../core/theme/app_colors.dart';
 import '../../models/ride_request.dart';
 import '../../models/vehicle_type.dart';
 import '../../routes/app_routes.dart';
+import 'payment_screen.dart';
 import 'rating_screen.dart';
 
 /// Coordonnées approximatives du centre de Pointe-Noire, utilisées tant que
@@ -276,15 +277,11 @@ class _BookingScreenState extends State<BookingScreen> {
                         .doc(_activeRequestId)
                         .snapshots(),
                     builder: (context, snapshot) {
-                      final data = snapshot.data?.data();
-                      final status = data != null
-                          ? RideStatus.fromFirestoreValue(data['status'] as String)
-                          : RideStatus.searching;
-                      final driverName = data?['driverName'] as String?;
+                      final doc = snapshot.data;
+                      final ride = (doc != null && doc.exists) ? RideRequest.fromDoc(doc) : null;
                       return _RideStatusPanel(
-                        status: status,
-                        driverName: driverName,
-                        rideId: _activeRequestId,
+                        status: ride?.status ?? RideStatus.searching,
+                        ride: ride,
                         onCancel: _cancelRequest,
                         onNewBooking: _startNewBooking,
                       );
@@ -429,22 +426,29 @@ class _BookingPanel extends StatelessWidget {
 class _RideStatusPanel extends StatelessWidget {
   const _RideStatusPanel({
     required this.status,
-    required this.driverName,
-    required this.rideId,
+    required this.ride,
     required this.onCancel,
     required this.onNewBooking,
   });
 
   final RideStatus status;
-  final String? driverName;
-  final String? rideId;
+  final RideRequest? ride;
   final VoidCallback onCancel;
   final VoidCallback onNewBooking;
 
   Future<void> _rateDriver(BuildContext context) async {
-    final id = rideId;
+    final id = ride?.id;
     if (id == null) return;
     await Navigator.of(context).push(MaterialPageRoute(builder: (_) => RatingScreen(rideId: id)));
+    onNewBooking();
+  }
+
+  Future<void> _payRide(BuildContext context) async {
+    final currentRide = ride;
+    if (currentRide == null) return;
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => PaymentScreen(ride: currentRide)));
     onNewBooking();
   }
 
@@ -479,7 +483,7 @@ class _RideStatusPanel extends StatelessWidget {
               Text(AppStrings.bookingAccepted, style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 6),
               Text(
-                '${driverName?.isNotEmpty == true ? driverName : AppStrings.driverClient} ${AppStrings.bookingDriverOnTheWay}',
+                '${ride?.driverName?.isNotEmpty == true ? ride!.driverName : AppStrings.driverClient} ${AppStrings.bookingDriverOnTheWay}',
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
             ],
@@ -487,6 +491,11 @@ class _RideStatusPanel extends StatelessWidget {
               Text(AppStrings.bookingCompletedTitle, style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 16),
               ElevatedButton(
+                onPressed: () => _payRide(context),
+                child: const Text(AppStrings.bookingPayRide),
+              ),
+              const SizedBox(height: 10),
+              OutlinedButton(
                 onPressed: () => _rateDriver(context),
                 child: const Text(AppStrings.bookingRateDriver),
               ),

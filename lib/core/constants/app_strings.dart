@@ -91,6 +91,21 @@ class AppStrings {
   static const bookingNewRequest = 'Nouvelle réservation';
   static const bookingCompletedTitle = 'Course terminée';
   static const bookingRateDriver = 'Noter le chauffeur';
+  static const bookingPayRide = 'Payer la course';
+
+  // Paiement de la course
+  static const paymentTitle = 'Paiement';
+  static const paymentAmountLabel = 'Montant de la course';
+  static const paymentMethodCard = 'Carte bancaire';
+  static const paymentMethodMobileMoney = 'Mobile Money';
+  static const paymentSecurityNotice =
+      'Pour que le chauffeur reçoive le paiement, veuillez saisir son identifiant Yame.';
+  static const paymentDriverIdLabel = 'Identifiant Yame du chauffeur';
+  static const paymentDriverIdHint = 'Ex : YAME12345';
+  static const paymentDriverIdInfo = 'Vous pouvez obtenir l\'identifiant auprès du chauffeur avant le paiement.';
+  static const paymentErrorDriverIdRequired = 'Veuillez saisir l\'identifiant du chauffeur.';
+  static const paymentError = 'Paiement impossible, réessayez.';
+  static const paymentSuccess = 'Paiement effectué avec succès !';
   static const bookingRequestError = 'Impossible de lancer la recherche, réessayez.';
 
   // Espace chauffeur
