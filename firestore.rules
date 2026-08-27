@@ -8,9 +8,12 @@ service cloud.firestore {
     }
 
     // Fiche véhicule d'un chauffeur (assistant d'inscription en 3 étapes,
-    // solde du portefeuille) : lisible/modifiable uniquement par lui-même.
+    // solde du portefeuille) : lisible par tout utilisateur connecté (un
+    // client mis en relation doit voir le modèle/la plaque du véhicule),
+    // mais modifiable uniquement par le chauffeur lui-même.
     match /driver_profiles/{driverId} {
-      allow read, write: if request.auth != null && request.auth.uid == driverId;
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == driverId;
     }
 
     // Demandes de course : tout utilisateur connecté peut lire (un chauffeur
@@ -41,6 +44,21 @@ service cloud.firestore {
       );
 
       allow delete: if false;
+
+      // Messages échangés entre le client et le chauffeur assigné à cette
+      // course : lisibles/écrivables uniquement par ces deux personnes.
+      function isRideParty() {
+        return get(/databases/$(database)/documents/ride_requests/$(requestId)).data.clientUid == request.auth.uid
+          || get(/databases/$(database)/documents/ride_requests/$(requestId)).data.driverUid == request.auth.uid;
+      }
+
+      match /messages/{messageId} {
+        allow read: if request.auth != null && isRideParty();
+        allow create: if request.auth != null
+          && request.resource.data.senderUid == request.auth.uid
+          && isRideParty();
+        allow update, delete: if false;
+      }
     }
   }
 }

@@ -5,7 +5,7 @@ import '../../core/theme/app_colors.dart';
 import '../../models/vehicle_type.dart';
 import '../booking/booking_screen.dart';
 import 'client_home_tab.dart';
-import 'coming_soon_tab.dart';
+import 'messages_tab.dart';
 import 'profil_screen.dart';
 
 /// Coque avec barre de navigation pour l'espace client :
@@ -35,7 +35,7 @@ class _ClientShellState extends State<ClientShell> {
     final tabs = [
       ClientHomeTab(name: widget.name, onSelectVehicle: _openBookingWith),
       BookingScreen(key: ValueKey(_vehicleType), initialVehicleType: _vehicleType),
-      const ComingSoonTab(title: AppStrings.navMessages, icon: Icons.chat_bubble_outline_rounded),
+      MessagesTab(onViewRide: () => setState(() => _index = 1)),
       const ProfilScreen(),
     ];
 

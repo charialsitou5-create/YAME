@@ -166,6 +166,25 @@ class AppStrings {
   static const wizardErrorPhotoMissing = 'Veuillez ajouter au moins les photos principales.';
   static const wizardImagePickError = 'Impossible d\'ouvrir la galerie.';
 
+  // Messages (client)
+  static const messagesEmptyTitle = 'Aucune conversation';
+  static const messagesEmptyBody =
+      'Réservez une course pour discuter avec votre chauffeur.';
+  static const messagesDriverSubtitle = 'Chauffeur Yame';
+  static const messagesAssignedTitle = 'Chauffeur assigné';
+  static const messagesAssignedBody = 'Votre chauffeur est en route.';
+  static const messagesViewRideDetails = 'Détails de la course';
+  static const messagesCall = 'Appeler';
+  static const messagesTrack = 'Suivre';
+  static const messagesComposerHint = 'Écrire un message...';
+  static const messagesTakePhoto = 'Prendre une photo';
+  static const messagesTakePhotoSubtitle = 'Montrer où vous êtes';
+  static const messagesSendLocation = 'Envoyer ma position';
+  static const messagesSendLocationSubtitle = 'Partager votre emplacement';
+  static const messagesLocationLabel = 'Je suis ici';
+  static const messagesLocationError = 'Impossible de récupérer votre position.';
+  static const messagesSendError = 'Message non envoyé, réessayez.';
+
   // Profil (client)
   static const profileMember = 'Membre Yame';
   static const profileActivities = 'Mes activités';
