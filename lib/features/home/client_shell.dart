@@ -40,7 +40,6 @@ class _ClientShellState extends State<ClientShell> {
     ];
 
     return Scaffold(
-      extendBody: true,
       body: IndexedStack(index: _index, children: tabs),
       bottomNavigationBar: _NavBar(
         index: _index,

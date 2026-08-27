@@ -89,6 +89,8 @@ class AppStrings {
   static const bookingAccepted = 'Chauffeur trouvé';
   static const bookingDriverOnTheWay = 'arrive pour vous prendre en charge.';
   static const bookingNewRequest = 'Nouvelle réservation';
+  static const bookingCompletedTitle = 'Course terminée';
+  static const bookingRateDriver = 'Noter le chauffeur';
   static const bookingRequestError = 'Impossible de lancer la recherche, réessayez.';
 
   // Espace chauffeur
@@ -104,6 +106,21 @@ class AppStrings {
   static const driverComplete = 'Terminer la course';
   static const driverCancelRide = 'Annuler la course';
   static const driverRequestTaken = 'Cette course vient d\'être prise par un autre chauffeur.';
+
+  // Notation du chauffeur (fin de course)
+  static const ratingTitle = 'Noter le chauffeur';
+  static const ratingQuestion = 'Comment était votre expérience ?';
+  static const ratingCommentLabel = 'Ajouter un commentaire (optionnel)';
+  static const ratingCommentHint = 'Écrivez votre commentaire ici...';
+  static const ratingPunctuality = 'Ponctualité';
+  static const ratingDriving = 'Conduite';
+  static const ratingCourtesy = 'Courtoisie';
+  static const ratingCleanliness = 'Propreté du véhicule';
+  static const ratingSubmit = 'Soumettre la note';
+  static const ratingSkip = 'Passer';
+  static const ratingErrorRequired = 'Merci de donner au moins une note globale.';
+  static const ratingSubmitError = 'Impossible d\'envoyer votre note, réessayez.';
+  static const ratingThanks = 'Merci pour votre retour !';
   static const driverWallet = 'Portefeuille';
 
   // Inscription chauffeur — écran d'introduction

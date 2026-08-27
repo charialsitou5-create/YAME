@@ -41,6 +41,14 @@ service cloud.firestore {
         (resource.data.status == 'accepted'
           && resource.data.driverUid == request.auth.uid
           && request.resource.data.status in ['completed', 'cancelled'])
+        ||
+        // le client note le chauffeur une fois la course terminée
+        (resource.data.status == 'completed'
+          && resource.data.clientUid == request.auth.uid
+          && request.resource.data.status == 'completed'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
+            ['rating', 'ratingComment', 'ratingPunctuality', 'ratingDriving', 'ratingCourtesy', 'ratingCleanliness']
+          ))
       );
 
       allow delete: if false;

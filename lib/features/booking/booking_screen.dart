@@ -10,6 +10,7 @@ import '../../core/theme/app_colors.dart';
 import '../../models/ride_request.dart';
 import '../../models/vehicle_type.dart';
 import '../../routes/app_routes.dart';
+import 'rating_screen.dart';
 
 /// Coordonnées approximatives du centre de Pointe-Noire, utilisées tant que
 /// la position de l'utilisateur n'est pas connue.
@@ -283,6 +284,7 @@ class _BookingScreenState extends State<BookingScreen> {
                       return _RideStatusPanel(
                         status: status,
                         driverName: driverName,
+                        rideId: _activeRequestId,
                         onCancel: _cancelRequest,
                         onNewBooking: _startNewBooking,
                       );
@@ -428,14 +430,23 @@ class _RideStatusPanel extends StatelessWidget {
   const _RideStatusPanel({
     required this.status,
     required this.driverName,
+    required this.rideId,
     required this.onCancel,
     required this.onNewBooking,
   });
 
   final RideStatus status;
   final String? driverName;
+  final String? rideId;
   final VoidCallback onCancel;
   final VoidCallback onNewBooking;
+
+  Future<void> _rateDriver(BuildContext context) async {
+    final id = rideId;
+    if (id == null) return;
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => RatingScreen(rideId: id)));
+    onNewBooking();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -473,9 +484,14 @@ class _RideStatusPanel extends StatelessWidget {
               ),
             ],
           RideStatus.completed => [
-              Text(AppStrings.homeWelcome, style: Theme.of(context).textTheme.titleLarge),
+              Text(AppStrings.bookingCompletedTitle, style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 16),
               ElevatedButton(
+                onPressed: () => _rateDriver(context),
+                child: const Text(AppStrings.bookingRateDriver),
+              ),
+              const SizedBox(height: 10),
+              TextButton(
                 onPressed: onNewBooking,
                 child: const Text(AppStrings.bookingNewRequest),
               ),
