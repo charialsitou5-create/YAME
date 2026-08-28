@@ -12,6 +12,7 @@ import '../../models/vehicle_type.dart';
 import '../../routes/app_routes.dart';
 import 'payment_screen.dart';
 import 'rating_screen.dart';
+import 'recipient_details_screen.dart';
 
 /// Coordonnées approximatives du centre de Pointe-Noire, utilisées tant que
 /// la position de l'utilisateur n'est pas connue.
@@ -45,6 +46,7 @@ class _BookingScreenState extends State<BookingScreen> {
 
   String? _activeRequestId;
   bool _submittingRequest = false;
+  RideRecipient? _recipient;
 
   @override
   void initState() {
@@ -131,6 +133,16 @@ class _BookingScreenState extends State<BookingScreen> {
     _setPoint(_pickMode, point);
   }
 
+  Future<void> _editRecipient() async {
+    final result = await Navigator.of(
+      context,
+    ).push<RideRecipient>(MaterialPageRoute(builder: (_) => RecipientDetailsScreen(initial: _recipient)));
+    if (result == null || !mounted) return;
+    setState(() => _recipient = result);
+  }
+
+  void _clearRecipient() => setState(() => _recipient = null);
+
   Future<void> _logout() async {
     await FirebaseAuth.instance.signOut();
     if (!mounted) return;
@@ -155,6 +167,10 @@ class _BookingScreenState extends State<BookingScreen> {
         destinationAddress: _destinationAddress,
         vehicleType: _vehicleType,
         status: RideStatus.searching,
+        recipientName: _recipient?.name,
+        recipientPhone: _recipient?.phone,
+        recipientInstructions: _recipient?.instructions,
+        contactRequesterInstead: _recipient?.contactRequesterInstead ?? false,
       );
       final doc = await FirebaseFirestore.instance
           .collection('ride_requests')
@@ -182,7 +198,10 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   void _startNewBooking() {
-    setState(() => _activeRequestId = null);
+    setState(() {
+      _activeRequestId = null;
+      _recipient = null;
+    });
   }
 
   @override
@@ -267,9 +286,12 @@ class _BookingScreenState extends State<BookingScreen> {
                     hasDestination: _destinationPosition != null,
                     canRequest: canRequest,
                     submitting: _submittingRequest,
+                    recipient: _recipient,
                     onModeChanged: (mode) => setState(() => _pickMode = mode),
                     onVehicleChanged: (type) => setState(() => _vehicleType = type),
                     onRequest: _requestDriver,
+                    onEditRecipient: _editRecipient,
+                    onClearRecipient: _clearRecipient,
                   )
                 : StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
                     stream: FirebaseFirestore.instance
@@ -331,9 +353,12 @@ class _BookingPanel extends StatelessWidget {
     required this.hasDestination,
     required this.canRequest,
     required this.submitting,
+    required this.recipient,
     required this.onModeChanged,
     required this.onVehicleChanged,
     required this.onRequest,
+    required this.onEditRecipient,
+    required this.onClearRecipient,
   });
 
   final _PickMode pickMode;
@@ -344,9 +369,12 @@ class _BookingPanel extends StatelessWidget {
   final bool hasDestination;
   final bool canRequest;
   final bool submitting;
+  final RideRecipient? recipient;
   final ValueChanged<_PickMode> onModeChanged;
   final ValueChanged<VehicleType> onVehicleChanged;
   final VoidCallback onRequest;
+  final VoidCallback onEditRecipient;
+  final VoidCallback onClearRecipient;
 
   @override
   Widget build(BuildContext context) {
@@ -406,6 +434,8 @@ class _BookingPanel extends StatelessWidget {
               );
             }).toList(),
           ),
+          const SizedBox(height: 14),
+          _RecipientRow(recipient: recipient, onEdit: onEditRecipient, onClear: onClearRecipient),
           const SizedBox(height: 16),
           ElevatedButton(
             onPressed: (canRequest && !submitting) ? onRequest : null,
@@ -418,6 +448,73 @@ class _BookingPanel extends StatelessWidget {
                 : const Text(AppStrings.bookingCta),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _RecipientRow extends StatelessWidget {
+  const _RecipientRow({required this.recipient, required this.onEdit, required this.onClear});
+
+  final RideRecipient? recipient;
+  final VoidCallback onEdit;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final recipient = this.recipient;
+    if (recipient == null) {
+      return InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onEdit,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            children: [
+              const Icon(Icons.person_add_alt_rounded, size: 18, color: AppColors.textSecondary),
+              const SizedBox(width: 10),
+              Text(
+                AppStrings.orderForSomeoneCta,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onEdit,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.person_rounded, size: 16, color: AppColors.accent),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                '${AppStrings.orderForSomeonePrefix}${recipient.name}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ),
+            IconButton(
+              onPressed: onClear,
+              tooltip: AppStrings.orderForSomeoneClear,
+              icon: const Icon(Icons.close_rounded, size: 18, color: AppColors.textSecondary),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+          ],
+        ),
       ),
     );
   }

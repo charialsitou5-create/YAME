@@ -33,6 +33,10 @@ class RideRequest {
     required this.status,
     this.driverUid,
     this.driverName,
+    this.recipientName,
+    this.recipientPhone,
+    this.recipientInstructions,
+    this.contactRequesterInstead = false,
   });
 
   final String? id;
@@ -47,6 +51,18 @@ class RideRequest {
   final String? driverUid;
   final String? driverName;
 
+  /// Renseignés quand la course est commandée pour quelqu'un d'autre que
+  /// [clientUid] (voir `RecipientDetailsScreen`). `null` sinon.
+  final String? recipientName;
+  final String? recipientPhone;
+  final String? recipientInstructions;
+
+  /// Si vrai, le chauffeur doit contacter le demandeur ([clientName]) plutôt
+  /// que la personne transportée pour cette course.
+  final bool contactRequesterInstead;
+
+  bool get isForSomeoneElse => recipientName != null;
+
   Map<String, dynamic> toMap() {
     return {
       'clientUid': clientUid,
@@ -59,6 +75,10 @@ class RideRequest {
       'status': status.firestoreValue,
       'driverUid': driverUid,
       'driverName': driverName,
+      'recipientName': recipientName,
+      'recipientPhone': recipientPhone,
+      'recipientInstructions': recipientInstructions,
+      'contactRequesterInstead': contactRequesterInstead,
       'createdAt': FieldValue.serverTimestamp(),
     };
   }
@@ -82,6 +102,10 @@ class RideRequest {
       status: RideStatus.fromFirestoreValue(data['status'] as String? ?? 'searching'),
       driverUid: data['driverUid'] as String?,
       driverName: data['driverName'] as String?,
+      recipientName: data['recipientName'] as String?,
+      recipientPhone: data['recipientPhone'] as String?,
+      recipientInstructions: data['recipientInstructions'] as String?,
+      contactRequesterInstead: data['contactRequesterInstead'] as bool? ?? false,
     );
   }
 }

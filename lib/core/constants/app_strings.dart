@@ -108,6 +108,18 @@ class AppStrings {
   static const paymentSuccess = 'Paiement effectué avec succès !';
   static const bookingRequestError = 'Impossible de lancer la recherche, réessayez.';
 
+  // Commander pour quelqu'un d'autre
+  static const orderForSomeoneCta = 'Commander pour quelqu\'un d\'autre';
+  static const orderForSomeoneTitle = 'Commander pour quelqu\'un';
+  static const orderForSomeoneSectionTitle = 'Les détails de la personne';
+  static const orderForSomeoneInstructions = 'Instructions (optionnel)';
+  static const orderForSomeoneInstructionsHint = 'Point de repère, informations...';
+  static const orderForSomeoneContactToggle =
+      'Me contacter en tant que chauffeur pour cette course';
+  static const orderForSomeoneConfirm = 'Confirmer';
+  static const orderForSomeoneClear = 'Retirer';
+  static const orderForSomeonePrefix = 'Pour ';
+
   // Espace chauffeur
   static const driverOnline = 'En ligne';
   static const driverOffline = 'Hors ligne';
