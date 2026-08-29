@@ -133,6 +133,21 @@ class AppStrings {
   static const driverComplete = 'Terminer la course';
   static const driverCancelRide = 'Annuler la course';
   static const driverRequestTaken = 'Cette course vient d\'être prise par un autre chauffeur.';
+  static const driverContactPassenger = 'Contacter le passager';
+
+  // Contact passager (chauffeur)
+  static const contactPassengerTitle = 'Contact passager';
+  static const contactPassengerLabel = 'Passager';
+  static const contactPassengerCall = 'Appeler';
+  static const contactPassengerMessage = 'Message';
+  static const contactPassengerNoticeRecipient =
+      'Cette course a été commandée pour le passager. Vous pouvez le contacter pour plus d\'informations.';
+  static const contactPassengerNoticeRequester =
+      'Cette course a été commandée pour quelqu\'un d\'autre. Le client a demandé à être contacté à sa place.';
+  static const contactPassengerInstructions = 'Instructions';
+  static const contactPassengerCallError = 'Impossible de lancer l\'appel.';
+  static const contactPassengerMessageError = 'Impossible d\'ouvrir la messagerie.';
+  static const contactPassengerNoPhone = 'Aucun numéro de téléphone disponible.';
 
   // Notation du chauffeur (fin de course)
   static const ratingTitle = 'Noter le chauffeur';

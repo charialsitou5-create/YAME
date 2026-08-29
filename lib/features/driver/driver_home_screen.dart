@@ -8,6 +8,7 @@ import '../../models/ride_request.dart';
 import '../../models/user_role.dart';
 import '../../models/vehicle_type.dart';
 import '../../routes/app_routes.dart';
+import 'contact_passenger_screen.dart';
 import 'recharge_screen.dart';
 
 /// Écran chauffeur : bascule en ligne/hors ligne, liste des demandes de
@@ -352,6 +353,17 @@ class _ActiveRide extends StatelessWidget {
                       address: request.destinationAddress,
                     ),
                   ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => Navigator.of(
+                    context,
+                  ).push(MaterialPageRoute(builder: (_) => ContactPassengerScreen(ride: request))),
+                  icon: const Icon(Icons.call_rounded, size: 18),
+                  label: const Text(AppStrings.driverContactPassenger),
                 ),
               ),
               const Spacer(),
