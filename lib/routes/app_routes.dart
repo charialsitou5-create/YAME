@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../features/auth/auth_gate.dart';
 import '../features/auth/login_screen.dart';
 import '../features/auth/signup_screen.dart';
 import '../features/home/home_screen.dart';
-import '../features/onboarding/onboarding_screen.dart';
 import '../models/user_role.dart';
 
 /// Table de routage nommée de l'application.
@@ -18,7 +18,7 @@ class AppRoutes {
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
       case onboarding:
-        return MaterialPageRoute(builder: (_) => const OnboardingScreen());
+        return MaterialPageRoute(builder: (_) => const AuthGate());
       case signup:
         final role = settings.arguments as UserRole? ?? UserRole.client;
         return MaterialPageRoute(builder: (_) => SignupScreen(role: role));
@@ -27,7 +27,7 @@ class AppRoutes {
       case home:
         return MaterialPageRoute(builder: (_) => const HomeScreen());
       default:
-        return MaterialPageRoute(builder: (_) => const OnboardingScreen());
+        return MaterialPageRoute(builder: (_) => const AuthGate());
     }
   }
 }

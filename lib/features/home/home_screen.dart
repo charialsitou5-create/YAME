@@ -6,6 +6,7 @@ import '../../models/app_user.dart';
 import '../../models/user_role.dart';
 import '../driver/driver_home_screen.dart';
 import '../driver/driver_intro_screen.dart';
+import '../driver/driver_status_screen.dart';
 import 'client_shell.dart';
 
 /// Aiguille vers l'écran de réservation (client) ou l'écran chauffeur,
@@ -19,7 +20,10 @@ class HomeScreen extends StatelessWidget {
     if (uid == null) return const SizedBox.shrink();
 
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .snapshots(),
       builder: (context, snapshot) {
         final data = snapshot.data?.data();
         if (data == null) return const SizedBox.shrink();
@@ -31,7 +35,24 @@ class HomeScreen extends StatelessWidget {
         if (!user.vehicleRegistered) {
           return DriverIntroScreen(role: user.role);
         }
-        return DriverHomeScreen(role: user.role, driverName: user.name);
+        return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+          stream: FirebaseFirestore.instance
+              .collection('driver_profiles')
+              .doc(uid)
+              .snapshots(),
+          builder: (context, profileSnapshot) {
+            final status =
+                profileSnapshot.data?.data()?['status'] as String? ??
+                'pending_verification';
+            if (status == 'rejected') {
+              return const DriverStatusScreen(rejected: true);
+            }
+            if (status != 'approved') {
+              return const DriverStatusScreen(rejected: false);
+            }
+            return DriverHomeScreen(role: user.role, driverName: user.name);
+          },
+        );
       },
     );
   }

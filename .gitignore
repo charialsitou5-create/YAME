@@ -49,3 +49,9 @@ app.*.map.json
 
 # Rapports Gradle générés avant la redirection du buildDir (voir android/build.gradle.kts)
 /android/build/
+
+# Firebase configuration & secrets
+**/google-services.json
+**/GoogleService-Info.plist
+lib/firebase_options.dart
+

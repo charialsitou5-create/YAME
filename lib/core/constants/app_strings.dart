@@ -7,11 +7,14 @@ class AppStrings {
 
   // Sélection de profil
   static const roleClient = 'Client';
-  static const roleClientDescription = 'Réservez vos courses en quelques secondes';
+  static const roleClientDescription =
+      'Réservez vos courses en quelques secondes';
   static const roleDriverCar = 'Chauffeur Voiture';
-  static const roleDriverCarDescription = 'Rejoignez la communauté Yame et gagnez de l\'argent';
+  static const roleDriverCarDescription =
+      'Rejoignez la communauté Yame et gagnez de l\'argent';
   static const roleDriverMoto = 'Chauffeur Moto';
-  static const roleDriverMotoDescription = 'Rejoignez la communauté Yame et gagnez de l\'argent';
+  static const roleDriverMotoDescription =
+      'Rejoignez la communauté Yame et gagnez de l\'argent';
 
   // Inscription
   static const signupHeadline = 'Créer votre compte';
@@ -39,16 +42,20 @@ class AppStrings {
   static const errorRequired = 'Ce champ est obligatoire.';
   static const errorPhoneInvalid = 'Numéro de téléphone invalide.';
   static const errorEmailInvalid = 'Adresse e-mail invalide.';
-  static const errorPasswordTooShort = 'Le mot de passe doit contenir au moins 6 caractères.';
-  static const errorEmailInUse = 'Un compte existe déjà avec cette adresse e-mail.';
-  static const errorUserNotFound = 'Aucun compte ne correspond à cette adresse e-mail.';
+  static const errorPasswordTooShort =
+      'Le mot de passe doit contenir au moins 6 caractères.';
+  static const errorEmailInUse =
+      'Un compte existe déjà avec cette adresse e-mail.';
+  static const errorUserNotFound =
+      'Aucun compte ne correspond à cette adresse e-mail.';
   static const errorWrongPassword = 'Mot de passe incorrect.';
   static const errorNetwork = 'Problème de connexion, réessayez.';
   static const errorGeneric = 'Une erreur est survenue, réessayez.';
 
   // Accueil (chauffeur — la course/réservation n'est pas encore construite côté chauffeur)
   static const homeWelcome = 'Bienvenue';
-  static const homeComingSoon = 'Les courses à accepter arriveront bientôt ici.';
+  static const homeComingSoon =
+      'Les courses à accepter arriveront bientôt ici.';
   static const logout = 'Se déconnecter';
 
   // Accueil (client)
@@ -61,7 +68,8 @@ class AppStrings {
   static const homeServiceCarTitle = 'Yame Voiture';
   static const homeServiceCarBody = 'Rapide, abordable et confortable.';
   static const homeServiceMotoTitle = 'Yame Moto';
-  static const homeServiceMotoBody = 'Agile et rapide, idéal pour éviter les bouchons.';
+  static const homeServiceMotoBody =
+      'Agile et rapide, idéal pour éviter les bouchons.';
 
   // Navigation
   static const navHome = 'Accueil';
@@ -76,7 +84,8 @@ class AppStrings {
   static const bookingPickupLabel = 'Départ';
   static const bookingDestinationLabel = 'Destination';
   static const bookingPickupHint = 'Touchez la carte pour définir le départ';
-  static const bookingDestinationHint = 'Touchez la carte pour définir la destination';
+  static const bookingDestinationHint =
+      'Touchez la carte pour définir la destination';
   static const bookingVehicleCar = 'Voiture';
   static const bookingVehicleMoto = 'Moto';
   static const bookingCta = 'Rechercher un chauffeur';
@@ -102,18 +111,22 @@ class AppStrings {
       'Pour que le chauffeur reçoive le paiement, veuillez saisir son identifiant Yame.';
   static const paymentDriverIdLabel = 'Identifiant Yame du chauffeur';
   static const paymentDriverIdHint = 'Ex : YAME12345';
-  static const paymentDriverIdInfo = 'Vous pouvez obtenir l\'identifiant auprès du chauffeur avant le paiement.';
-  static const paymentErrorDriverIdRequired = 'Veuillez saisir l\'identifiant du chauffeur.';
+  static const paymentDriverIdInfo =
+      'Vous pouvez obtenir l\'identifiant auprès du chauffeur avant le paiement.';
+  static const paymentErrorDriverIdRequired =
+      'Veuillez saisir l\'identifiant du chauffeur.';
   static const paymentError = 'Paiement impossible, réessayez.';
   static const paymentSuccess = 'Paiement effectué avec succès !';
-  static const bookingRequestError = 'Impossible de lancer la recherche, réessayez.';
+  static const bookingRequestError =
+      'Impossible de lancer la recherche, réessayez.';
 
   // Commander pour quelqu'un d'autre
   static const orderForSomeoneCta = 'Commander pour quelqu\'un d\'autre';
   static const orderForSomeoneTitle = 'Commander pour quelqu\'un';
   static const orderForSomeoneSectionTitle = 'Les détails de la personne';
   static const orderForSomeoneInstructions = 'Instructions (optionnel)';
-  static const orderForSomeoneInstructionsHint = 'Point de repère, informations...';
+  static const orderForSomeoneInstructionsHint =
+      'Point de repère, informations...';
   static const orderForSomeoneContactToggle =
       'Me contacter en tant que chauffeur pour cette course';
   static const orderForSomeoneConfirm = 'Confirmer';
@@ -132,8 +145,18 @@ class AppStrings {
   static const driverDestination = 'Destination';
   static const driverComplete = 'Terminer la course';
   static const driverCancelRide = 'Annuler la course';
-  static const driverRequestTaken = 'Cette course vient d\'être prise par un autre chauffeur.';
+  static const driverRequestTaken =
+      'Cette course vient d\'être prise par un autre chauffeur.';
   static const driverContactPassenger = 'Contacter le passager';
+  static const driverBalanceRequired =
+      'Rechargez votre compte pour passer en ligne et recevoir des courses.';
+  static const driverBalanceRequiredCta = 'Recharger mon compte';
+  static const driverPendingTitle = 'Inscription en cours de vérification';
+  static const driverPendingBody =
+      'Notre équipe vérifie vos informations et documents. Vous recevrez une notification dès que votre compte sera validé.';
+  static const driverRejectedTitle = 'Inscription refusée';
+  static const driverRejectedBody =
+      'Votre inscription n\'a pas pu être validée. Contactez le support Yame pour en savoir plus.';
 
   // Contact passager (chauffeur)
   static const contactPassengerTitle = 'Contact passager';
@@ -146,8 +169,10 @@ class AppStrings {
       'Cette course a été commandée pour quelqu\'un d\'autre. Le client a demandé à être contacté à sa place.';
   static const contactPassengerInstructions = 'Instructions';
   static const contactPassengerCallError = 'Impossible de lancer l\'appel.';
-  static const contactPassengerMessageError = 'Impossible d\'ouvrir la messagerie.';
-  static const contactPassengerNoPhone = 'Aucun numéro de téléphone disponible.';
+  static const contactPassengerMessageError =
+      'Impossible d\'ouvrir la messagerie.';
+  static const contactPassengerNoPhone =
+      'Aucun numéro de téléphone disponible.';
 
   // Notation du chauffeur (fin de course)
   static const ratingTitle = 'Noter le chauffeur';
@@ -160,8 +185,10 @@ class AppStrings {
   static const ratingCleanliness = 'Propreté du véhicule';
   static const ratingSubmit = 'Soumettre la note';
   static const ratingSkip = 'Passer';
-  static const ratingErrorRequired = 'Merci de donner au moins une note globale.';
-  static const ratingSubmitError = 'Impossible d\'envoyer votre note, réessayez.';
+  static const ratingErrorRequired =
+      'Merci de donner au moins une note globale.';
+  static const ratingSubmitError =
+      'Impossible d\'envoyer votre note, réessayez.';
   static const ratingThanks = 'Merci pour votre retour !';
   static const driverWallet = 'Portefeuille';
 
@@ -172,9 +199,12 @@ class AppStrings {
   static const driverIntroHowItWorks = 'Comment ça fonctionne ?';
   static const driverIntroStep1 =
       'Rechargez votre compte Yame au guichet, par mobile money ou virement bancaire.';
-  static const driverIntroStep2 = 'Recevez des courses et transportez en toute sécurité.';
-  static const driverIntroStep3 = 'À chaque course, 15 % de commission sont prélevés par Yame.';
-  static const driverIntroStep4 = 'Notification automatique quand votre solde ≤ 1 000 FCFA.';
+  static const driverIntroStep2 =
+      'Recevez des courses et transportez en toute sécurité.';
+  static const driverIntroStep3 =
+      'À chaque course, 15 % de commission sont prélevés par Yame.';
+  static const driverIntroStep4 =
+      'Notification automatique quand votre solde ≤ 1 000 FCFA.';
   static const driverIntroCta = 'Suivant';
 
   // Inscription chauffeur — assistant véhicule (3 étapes)
@@ -185,8 +215,10 @@ class AppStrings {
   static const wizardStepDocuments = 'Documents';
   static const wizardVehicleInfoTitle = 'Informations du véhicule';
   static const wizardMotoInfoTitle = 'Informations de la moto';
-  static const wizardVehicleInfoSubtitle = 'Veuillez renseigner les informations de votre véhicule';
-  static const wizardMotoInfoSubtitle = 'Veuillez renseigner les informations de votre moto';
+  static const wizardVehicleInfoSubtitle =
+      'Veuillez renseigner les informations de votre véhicule';
+  static const wizardMotoInfoSubtitle =
+      'Veuillez renseigner les informations de votre moto';
   static const wizardFieldModelCar = 'Modèle du véhicule';
   static const wizardFieldModelCarHint = 'Ex : Corolla, Tucson, Sportage...';
   static const wizardFieldModelMoto = 'Modèle de la moto';
@@ -205,8 +237,10 @@ class AppStrings {
   static const wizardSubmit = 'Soumettre';
   static const wizardImagesVehicleTitle = 'Images du véhicule';
   static const wizardImagesMotoTitle = 'Images de la moto';
-  static const wizardImagesVehicleSubtitle = 'Veuillez ajouter des photos claires de votre véhicule';
-  static const wizardImagesMotoSubtitle = 'Veuillez ajouter des photos claires de votre moto';
+  static const wizardImagesVehicleSubtitle =
+      'Veuillez ajouter des photos claires de votre véhicule';
+  static const wizardImagesMotoSubtitle =
+      'Veuillez ajouter des photos claires de votre moto';
   static const wizardPhotoFront = 'Face avant';
   static const wizardPhotoBack = 'Face arrière';
   static const wizardPhotoLeft = 'Côté gauche';
@@ -214,15 +248,19 @@ class AppStrings {
   static const wizardPhotoOverview = 'Vue d\'ensemble';
   static const wizardAddPhoto = 'Ajouter une photo';
   static const wizardDocumentsTitle = 'Documents';
-  static const wizardDocumentsSubtitle = 'Veuillez ajouter les documents suivants';
+  static const wizardDocumentsSubtitle =
+      'Veuillez ajouter les documents suivants';
   static const wizardDocRegistrationCar = 'Carte grise';
   static const wizardDocRegistrationMoto = 'Carte grise (recto)';
   static const wizardDocLicense = 'Permis de conduire';
-  static const wizardSubmitSuccess = 'Inscription envoyée, en attente de validation.';
-  static const wizardSubmitError = 'Impossible d\'enregistrer votre véhicule, réessayez.';
+  static const wizardSubmitSuccess =
+      'Inscription envoyée, en attente de validation.';
+  static const wizardSubmitError =
+      'Impossible d\'enregistrer votre véhicule, réessayez.';
   static const wizardErrorRequired = 'Ce champ est obligatoire.';
   static const wizardErrorYearInvalid = 'Année invalide.';
-  static const wizardErrorPhotoMissing = 'Veuillez ajouter au moins les photos principales.';
+  static const wizardErrorPhotoMissing =
+      'Veuillez ajouter au moins les photos principales.';
   static const wizardImagePickError = 'Impossible d\'ouvrir la galerie.';
 
   // Messages (client)
@@ -241,7 +279,8 @@ class AppStrings {
   static const messagesSendLocation = 'Envoyer ma position';
   static const messagesSendLocationSubtitle = 'Partager votre emplacement';
   static const messagesLocationLabel = 'Je suis ici';
-  static const messagesLocationError = 'Impossible de récupérer votre position.';
+  static const messagesLocationError =
+      'Impossible de récupérer votre position.';
   static const messagesSendError = 'Message non envoyé, réessayez.';
 
   // Profil (client)
@@ -260,7 +299,8 @@ class AppStrings {
   static const profileInviteFriend = 'Inviter un ami';
   static const profileInviteFriendSubtitle = 'Gagnez des bonus';
   static const profileSettings = 'Paramètres';
-  static const profileSettingsSubtitle = 'Notifications, langue, confidentialité';
+  static const profileSettingsSubtitle =
+      'Notifications, langue, confidentialité';
   static const profileHelp = 'Aide & Support';
   static const profileHelpSubtitle = 'FAQ, contactez-nous';
   static const profileAbout = 'À propos de Yame';
@@ -271,6 +311,24 @@ class AppStrings {
   static const profilePremiumCta = 'Découvrir';
   static const profileLogout = 'Se déconnecter';
 
+  // Signaler un problème (client + chauffeur)
+  static const reportTitle = 'Signaler un problème';
+  static const reportKindIncident = 'Incident';
+  static const reportKindFeedback = 'Avis / suggestion';
+  static const reportCategoryLabel = 'Catégorie';
+  static const reportCategorySecurity = 'Sécurité';
+  static const reportCategoryPayment = 'Paiement';
+  static const reportCategoryBehavior = 'Comportement';
+  static const reportCategoryVehicle = 'Véhicule';
+  static const reportCategoryOther = 'Autre';
+  static const reportMessageLabel = 'Décrivez le problème';
+  static const reportMessageHint = 'Expliquez ce qui s\'est passé...';
+  static const reportErrorRequired = 'Merci de décrire le problème.';
+  static const reportSubmit = 'Envoyer';
+  static const reportSuccess = 'Merci, votre signalement a été envoyé.';
+  static const reportError =
+      'Impossible d\'envoyer votre signalement, réessayez.';
+
   // Recharge de compte (chauffeurs)
   static const rechargeTitle = 'Recharger mon compte';
   static const rechargeCurrentBalance = 'Solde actuel';
@@ -278,5 +336,6 @@ class AppStrings {
   static const rechargeCash = 'Espèces (Guichet Yame)';
   static const rechargeMobileMoney = 'Mobile Money';
   static const rechargeBankTransfer = 'Virement bancaire';
-  static const rechargeNotice = 'Notification automatique quand votre solde ≤ 1 000 FCFA.';
+  static const rechargeNotice =
+      'Notification automatique quand votre solde ≤ 1 000 FCFA.';
 }

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -19,7 +20,8 @@ class VehicleRegistrationWizard extends StatefulWidget {
   final UserRole role;
 
   @override
-  State<VehicleRegistrationWizard> createState() => _VehicleRegistrationWizardState();
+  State<VehicleRegistrationWizard> createState() =>
+      _VehicleRegistrationWizardState();
 }
 
 class _VehicleRegistrationWizardState extends State<VehicleRegistrationWizard> {
@@ -66,13 +68,16 @@ class _VehicleRegistrationWizardState extends State<VehicleRegistrationWizard> {
 
   Future<File?> _pickImage() async {
     try {
-      final file = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+      final file = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 80,
+      );
       return file == null ? null : File(file.path);
     } catch (_) {
       if (!mounted) return null;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text(AppStrings.wizardImagePickError)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.wizardImagePickError)),
+      );
       return null;
     }
   }
@@ -86,12 +91,43 @@ class _VehicleRegistrationWizardState extends State<VehicleRegistrationWizard> {
     }
   }
 
+  /// `null` en cas d'échec (ex : Firebase Storage pas encore activé sur le
+  /// projet) — l'inscription doit pouvoir continuer sans document plutôt
+  /// que d'échouer entièrement à cause d'un problème d'upload.
+  Future<String?> _uploadDoc(String uid, String path, File file) async {
+    try {
+      final ref = FirebaseStorage.instance.ref('driver_documents/$uid/$path');
+      await ref.putFile(file);
+      return await ref.getDownloadURL();
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> _submit() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
 
     setState(() => _submitting = true);
     try {
+      final photoUrls = <String, String>{};
+      for (final entry in _photos.entries) {
+        final file = entry.value;
+        if (file == null) continue;
+        final url = await _uploadDoc(uid, 'photo_${entry.key}.jpg', file);
+        if (url != null) photoUrls[entry.key] = url;
+      }
+      final registrationCardUrl = _registrationCardPhoto == null
+          ? null
+          : await _uploadDoc(
+              uid,
+              'registration_card.jpg',
+              _registrationCardPhoto!,
+            );
+      final licenseUrl = _licensePhoto == null
+          ? null
+          : await _uploadDoc(uid, 'license.jpg', _licensePhoto!);
+
       final vehicle = DriverVehicle(
         vehicleType: widget.role.vehicleType,
         model: _modelController.text.trim(),
@@ -99,23 +135,29 @@ class _VehicleRegistrationWizardState extends State<VehicleRegistrationWizard> {
         plate: _plateController.text.trim(),
         seats: _seats!,
         color: _isCar ? _colorController.text.trim() : null,
+        photoUrls: photoUrls,
+        registrationCardUrl: registrationCardUrl,
+        licenseUrl: licenseUrl,
       );
 
-      await FirebaseFirestore.instance.collection('driver_profiles').doc(uid).set(vehicle.toMap());
+      await FirebaseFirestore.instance
+          .collection('driver_profiles')
+          .doc(uid)
+          .set(vehicle.toMap());
       await FirebaseFirestore.instance.collection('users').doc(uid).update({
         'vehicleRegistered': true,
       });
 
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text(AppStrings.wizardSubmitSuccess)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.wizardSubmitSuccess)),
+      );
       Navigator.of(context).popUntil((route) => route.isFirst);
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text(AppStrings.wizardSubmitError)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.wizardSubmitError)),
+      );
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -133,16 +175,21 @@ class _VehicleRegistrationWizardState extends State<VehicleRegistrationWizard> {
               child: Row(
                 children: [
                   IconButton(
-                    onPressed: () =>
-                        _step == 0 ? Navigator.of(context).maybePop() : setState(() => _step -= 1),
+                    onPressed: () => _step == 0
+                        ? Navigator.of(context).maybePop()
+                        : setState(() => _step -= 1),
                     icon: const Icon(Icons.arrow_back_rounded),
                   ),
                   Expanded(
                     child: _StepIndicator(
                       step: _step,
                       labels: [
-                        _isCar ? AppStrings.wizardStepVehicleInfo : AppStrings.wizardStepMotoInfo,
-                        _isCar ? AppStrings.wizardStepVehicleImages : AppStrings.wizardStepMotoImages,
+                        _isCar
+                            ? AppStrings.wizardStepVehicleInfo
+                            : AppStrings.wizardStepMotoInfo,
+                        _isCar
+                            ? AppStrings.wizardStepVehicleImages
+                            : AppStrings.wizardStepMotoImages,
                         AppStrings.wizardStepDocuments,
                       ],
                     ),
@@ -155,37 +202,39 @@ class _VehicleRegistrationWizardState extends State<VehicleRegistrationWizard> {
                 padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
                 child: switch (_step) {
                   0 => _InfoStep(
-                      isCar: _isCar,
-                      formKey: _formKey,
-                      modelController: _modelController,
-                      yearController: _yearController,
-                      colorController: _colorController,
-                      plateController: _plateController,
-                      seats: _seats,
-                      onSeatsChanged: (value) => setState(() => _seats = value),
-                    ),
+                    isCar: _isCar,
+                    formKey: _formKey,
+                    modelController: _modelController,
+                    yearController: _yearController,
+                    colorController: _colorController,
+                    plateController: _plateController,
+                    seats: _seats,
+                    onSeatsChanged: (value) => setState(() => _seats = value),
+                  ),
                   1 => _ImagesStep(
-                      isCar: _isCar,
-                      labels: _photoLabels,
-                      photos: _photos,
-                      onPick: (label) async {
-                        final file = await _pickImage();
-                        if (file != null) setState(() => _photos[label] = file);
-                      },
-                    ),
+                    isCar: _isCar,
+                    labels: _photoLabels,
+                    photos: _photos,
+                    onPick: (label) async {
+                      final file = await _pickImage();
+                      if (file != null) setState(() => _photos[label] = file);
+                    },
+                  ),
                   _ => _DocumentsStep(
-                      isCar: _isCar,
-                      registrationCard: _registrationCardPhoto,
-                      license: _licensePhoto,
-                      onPickRegistration: () async {
-                        final file = await _pickImage();
-                        if (file != null) setState(() => _registrationCardPhoto = file);
-                      },
-                      onPickLicense: () async {
-                        final file = await _pickImage();
-                        if (file != null) setState(() => _licensePhoto = file);
-                      },
-                    ),
+                    isCar: _isCar,
+                    registrationCard: _registrationCardPhoto,
+                    license: _licensePhoto,
+                    onPickRegistration: () async {
+                      final file = await _pickImage();
+                      if (file != null) {
+                        setState(() => _registrationCardPhoto = file);
+                      }
+                    },
+                    onPickLicense: () async {
+                      final file = await _pickImage();
+                      if (file != null) setState(() => _licensePhoto = file);
+                    },
+                  ),
                 },
               ),
             ),
@@ -201,7 +250,11 @@ class _VehicleRegistrationWizardState extends State<VehicleRegistrationWizard> {
                           height: 20,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : Text(_step < 2 ? AppStrings.wizardNext : AppStrings.wizardSubmit),
+                      : Text(
+                          _step < 2
+                              ? AppStrings.wizardNext
+                              : AppStrings.wizardSubmit,
+                        ),
                 ),
               ),
             ),
@@ -243,13 +296,17 @@ class _StepIndicator extends StatelessWidget {
               height: 28,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: (active || done) ? AppColors.accent : AppColors.surfaceElevated,
+                color: (active || done)
+                    ? AppColors.accent
+                    : AppColors.surfaceElevated,
                 shape: BoxShape.circle,
               ),
               child: Text(
                 '${index + 1}',
                 style: TextStyle(
-                  color: (active || done) ? AppColors.background : AppColors.textSecondary,
+                  color: (active || done)
+                      ? AppColors.background
+                      : AppColors.textSecondary,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -263,7 +320,9 @@ class _StepIndicator extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
-                  color: active ? AppColors.accentBright : AppColors.textSecondary,
+                  color: active
+                      ? AppColors.accentBright
+                      : AppColors.textSecondary,
                 ),
               ),
             ),
@@ -314,21 +373,32 @@ class _InfoStep extends StatelessWidget {
                 ),
               ],
             ),
-            style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 26),
+            style: Theme.of(context).textTheme.displayLarge
+                ?.copyWith(fontSize: 26),
           ),
           const SizedBox(height: 6),
           Text(
-            isCar ? AppStrings.wizardVehicleInfoSubtitle : AppStrings.wizardMotoInfoSubtitle,
+            isCar
+                ? AppStrings.wizardVehicleInfoSubtitle
+                : AppStrings.wizardMotoInfoSubtitle,
             style: Theme.of(context).textTheme.bodyMedium,
           ),
           const SizedBox(height: 24),
-          _FieldLabel(isCar ? AppStrings.wizardFieldModelCar : AppStrings.wizardFieldModelMoto),
+          _FieldLabel(
+            isCar
+                ? AppStrings.wizardFieldModelCar
+                : AppStrings.wizardFieldModelMoto,
+          ),
           TextFormField(
             controller: modelController,
             decoration: InputDecoration(
-              hintText: isCar ? AppStrings.wizardFieldModelCarHint : AppStrings.wizardFieldModelMotoHint,
+              hintText: isCar
+                  ? AppStrings.wizardFieldModelCarHint
+                  : AppStrings.wizardFieldModelMotoHint,
             ),
-            validator: (v) => (v == null || v.trim().isEmpty) ? AppStrings.wizardErrorRequired : null,
+            validator: (v) => (v == null || v.trim().isEmpty)
+                ? AppStrings.wizardErrorRequired
+                : null,
           ),
           const SizedBox(height: 18),
           _FieldLabel(AppStrings.wizardFieldYear),
@@ -353,25 +423,41 @@ class _InfoStep extends StatelessWidget {
             const _FieldLabel(AppStrings.wizardFieldColor),
             TextFormField(
               controller: colorController,
-              decoration: const InputDecoration(hintText: AppStrings.wizardFieldColorHint),
-              validator: (v) => (v == null || v.trim().isEmpty) ? AppStrings.wizardErrorRequired : null,
+              decoration: const InputDecoration(
+                hintText: AppStrings.wizardFieldColorHint,
+              ),
+              validator: (v) => (v == null || v.trim().isEmpty)
+                  ? AppStrings.wizardErrorRequired
+                  : null,
             ),
           ],
           const SizedBox(height: 18),
-          _FieldLabel(isCar ? AppStrings.wizardFieldPlateCar : AppStrings.wizardFieldPlateCar),
+          _FieldLabel(
+            isCar
+                ? AppStrings.wizardFieldPlateCar
+                : AppStrings.wizardFieldPlateCar,
+          ),
           TextFormField(
             controller: plateController,
             textCapitalization: TextCapitalization.characters,
             decoration: InputDecoration(
-              hintText: isCar ? AppStrings.wizardFieldPlateCarHint : AppStrings.wizardFieldPlateMotoHint,
+              hintText: isCar
+                  ? AppStrings.wizardFieldPlateCarHint
+                  : AppStrings.wizardFieldPlateMotoHint,
             ),
-            validator: (v) => (v == null || v.trim().isEmpty) ? AppStrings.wizardErrorRequired : null,
+            validator: (v) => (v == null || v.trim().isEmpty)
+                ? AppStrings.wizardErrorRequired
+                : null,
           ),
           const SizedBox(height: 18),
           const _FieldLabel(AppStrings.wizardFieldSeats),
           DropdownButtonFormField<int>(
             initialValue: seats,
-            hint: Text(isCar ? AppStrings.wizardFieldSeatsHint : AppStrings.wizardFieldSeatsMotoHint),
+            hint: Text(
+              isCar
+                  ? AppStrings.wizardFieldSeatsHint
+                  : AppStrings.wizardFieldSeatsMotoHint,
+            ),
             items: seatOptions
                 .map((n) => DropdownMenuItem(value: n, child: Text('$n')))
                 .toList(growable: false),
@@ -395,7 +481,10 @@ class _FieldLabel extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 8),
       child: Text(
         text,
-        style: const TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w600),
+        style: const TextStyle(
+          color: AppColors.textSecondary,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
@@ -417,7 +506,9 @@ class _ImagesStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final overview = isCar ? null : AppStrings.wizardPhotoOverview;
-    final gridLabels = labels.where((l) => l != overview).toList(growable: false);
+    final gridLabels = labels
+        .where((l) => l != overview)
+        .toList(growable: false);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -432,11 +523,14 @@ class _ImagesStep extends StatelessWidget {
               ),
             ],
           ),
-          style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 26),
+          style: Theme.of(context).textTheme.displayLarge
+              ?.copyWith(fontSize: 26),
         ),
         const SizedBox(height: 6),
         Text(
-          isCar ? AppStrings.wizardImagesVehicleSubtitle : AppStrings.wizardImagesMotoSubtitle,
+          isCar
+              ? AppStrings.wizardImagesVehicleSubtitle
+              : AppStrings.wizardImagesMotoSubtitle,
           style: Theme.of(context).textTheme.bodyMedium,
         ),
         const SizedBox(height: 20),
@@ -448,7 +542,13 @@ class _ImagesStep extends StatelessWidget {
           crossAxisSpacing: 14,
           childAspectRatio: 0.85,
           children: gridLabels
-              .map((label) => _PhotoSlot(label: label, file: photos[label], onTap: () => onPick(label)))
+              .map(
+                (label) => _PhotoSlot(
+                  label: label,
+                  file: photos[label],
+                  onTap: () => onPick(label),
+                ),
+              )
               .toList(growable: false),
         ),
         if (overview != null) ...[
@@ -466,7 +566,12 @@ class _ImagesStep extends StatelessWidget {
 }
 
 class _PhotoSlot extends StatelessWidget {
-  const _PhotoSlot({required this.label, required this.file, required this.onTap, this.height});
+  const _PhotoSlot({
+    required this.label,
+    required this.file,
+    required this.onTap,
+    this.height,
+  });
 
   final String label;
   final File? file;
@@ -492,7 +597,11 @@ class _PhotoSlot extends StatelessWidget {
             child: file != null
                 ? ClipRRect(
                     borderRadius: BorderRadius.circular(10),
-                    child: Image.file(file!, fit: BoxFit.cover, width: double.infinity),
+                    child: Image.file(
+                      file!,
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                    ),
                   )
                 : const SizedBox.shrink(),
           ),
@@ -500,7 +609,10 @@ class _PhotoSlot extends StatelessWidget {
           OutlinedButton.icon(
             onPressed: onTap,
             icon: const Icon(Icons.camera_alt_outlined, size: 18),
-            label: const Text(AppStrings.wizardAddPhoto, style: TextStyle(fontSize: 13)),
+            label: const Text(
+              AppStrings.wizardAddPhoto,
+              style: TextStyle(fontSize: 13),
+            ),
             style: OutlinedButton.styleFrom(
               minimumSize: const Size.fromHeight(40),
               side: const BorderSide(color: AppColors.border),
@@ -532,24 +644,41 @@ class _DocumentsStep extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(AppStrings.wizardDocumentsTitle, style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 26)),
+        Text(
+          AppStrings.wizardDocumentsTitle,
+          style: Theme.of(context).textTheme.displayLarge
+              ?.copyWith(fontSize: 26),
+        ),
         const SizedBox(height: 6),
-        Text(AppStrings.wizardDocumentsSubtitle, style: Theme.of(context).textTheme.bodyMedium),
+        Text(
+          AppStrings.wizardDocumentsSubtitle,
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
         const SizedBox(height: 20),
         _DocumentSlot(
-          label: isCar ? AppStrings.wizardDocRegistrationCar : AppStrings.wizardDocRegistrationMoto,
+          label: isCar
+              ? AppStrings.wizardDocRegistrationCar
+              : AppStrings.wizardDocRegistrationMoto,
           file: registrationCard,
           onTap: onPickRegistration,
         ),
         const SizedBox(height: 18),
-        _DocumentSlot(label: AppStrings.wizardDocLicense, file: license, onTap: onPickLicense),
+        _DocumentSlot(
+          label: AppStrings.wizardDocLicense,
+          file: license,
+          onTap: onPickLicense,
+        ),
       ],
     );
   }
 }
 
 class _DocumentSlot extends StatelessWidget {
-  const _DocumentSlot({required this.label, required this.file, required this.onTap});
+  const _DocumentSlot({
+    required this.label,
+    required this.file,
+    required this.onTap,
+  });
 
   final String label;
   final File? file;
@@ -572,13 +701,21 @@ class _DocumentSlot extends StatelessWidget {
           if (file != null)
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
-              child: Image.file(file!, height: 140, width: double.infinity, fit: BoxFit.cover),
+              child: Image.file(
+                file!,
+                height: 140,
+                width: double.infinity,
+                fit: BoxFit.cover,
+              ),
             ),
           const SizedBox(height: 10),
           OutlinedButton.icon(
             onPressed: onTap,
             icon: const Icon(Icons.camera_alt_outlined, size: 18),
-            label: const Text(AppStrings.wizardAddPhoto, style: TextStyle(fontSize: 13)),
+            label: const Text(
+              AppStrings.wizardAddPhoto,
+              style: TextStyle(fontSize: 13),
+            ),
             style: OutlinedButton.styleFrom(
               minimumSize: const Size.fromHeight(44),
               side: const BorderSide(color: AppColors.border),

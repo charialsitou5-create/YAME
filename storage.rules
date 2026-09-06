@@ -1,0 +1,13 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Photos et documents du véhicule d'un chauffeur, uploadés pendant
+    // l'assistant d'inscription — lisibles/écrivables uniquement par le
+    // chauffeur propriétaire. Le panneau admin y accède via le Firebase
+    // Admin SDK, qui ignore ces règles.
+    match /driver_documents/{driverId}/{fileName} {
+      allow read, write: if request.auth != null && request.auth.uid == driverId;
+    }
+  }
+}

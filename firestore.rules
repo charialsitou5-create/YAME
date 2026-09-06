@@ -9,11 +9,24 @@ service cloud.firestore {
 
     // Fiche véhicule d'un chauffeur (assistant d'inscription en 3 étapes,
     // solde du portefeuille) : lisible par tout utilisateur connecté (un
-    // client mis en relation doit voir le modèle/la plaque du véhicule),
-    // mais modifiable uniquement par le chauffeur lui-même.
+    // client mis en relation doit voir le modèle/la plaque du véhicule).
+    // Le chauffeur peut créer sa fiche et corriger ses infos/photos, mais
+    // ne peut jamais modifier lui-même `status` ou `balance` — ces deux
+    // champs ne changent que via le panneau admin (Firebase Admin SDK,
+    // qui ignore ces règles) : validation d'inscription et recharge de
+    // solde.
     match /driver_profiles/{driverId} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == driverId;
+
+      allow create: if request.auth != null && request.auth.uid == driverId
+        && request.resource.data.status == 'pending_verification'
+        && request.resource.data.balance == 0;
+
+      allow update: if request.auth != null && request.auth.uid == driverId
+        && request.resource.data.status == resource.data.status
+        && request.resource.data.balance == resource.data.balance;
+
+      allow delete: if false;
     }
 
     // Demandes de course : tout utilisateur connecté peut lire (un chauffeur
@@ -75,6 +88,20 @@ service cloud.firestore {
           && isRideParty();
         allow update, delete: if false;
       }
+    }
+
+    // Signalements (incidents/avis) envoyés par un client ou un chauffeur
+    // depuis l'appli — traités uniquement côté admin (Admin SDK, qui
+    // ignore ces règles). Un utilisateur ne voit que ses propres
+    // signalements et ne peut jamais les modifier une fois envoyés.
+    match /incidents/{incidentId} {
+      allow read: if request.auth != null && resource.data.reporterUid == request.auth.uid;
+
+      allow create: if request.auth != null
+        && request.resource.data.reporterUid == request.auth.uid
+        && request.resource.data.status == 'open';
+
+      allow update, delete: if false;
     }
   }
 }

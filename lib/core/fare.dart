@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../models/vehicle_type.dart';
 
@@ -43,3 +43,4 @@ String formatFcfa(int amount) {
   }
   return buffer.toString();
 }
+

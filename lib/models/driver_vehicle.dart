@@ -10,6 +10,9 @@ class DriverVehicle {
     required this.plate,
     required this.seats,
     this.color,
+    this.photoUrls = const {},
+    this.registrationCardUrl,
+    this.licenseUrl,
   });
 
   final VehicleType vehicleType;
@@ -22,6 +25,14 @@ class DriverVehicle {
   /// dans la maquette).
   final String? color;
 
+  /// Photos du véhicule (face avant, arrière, côtés, vue d'ensemble),
+  /// indexées par leur libellé — utilisées par l'admin pour la validation.
+  final Map<String, String> photoUrls;
+
+  /// Documents requis pour la validation par l'admin.
+  final String? registrationCardUrl;
+  final String? licenseUrl;
+
   Map<String, dynamic> toMap() {
     return {
       'vehicleType': vehicleType.name,
@@ -30,6 +41,10 @@ class DriverVehicle {
       'plate': plate,
       'seats': seats,
       if (color != null && color!.isNotEmpty) 'color': color,
+      if (photoUrls.isNotEmpty) 'photoUrls': photoUrls,
+      if (registrationCardUrl != null)
+        'registrationCardUrl': registrationCardUrl,
+      if (licenseUrl != null) 'licenseUrl': licenseUrl,
       'balance': 0,
       'status': 'pending_verification',
       'createdAt': DateTime.now().toIso8601String(),

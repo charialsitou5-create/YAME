@@ -8,13 +8,19 @@ import '../../models/ride_request.dart';
 import '../../models/user_role.dart';
 import '../../models/vehicle_type.dart';
 import '../../routes/app_routes.dart';
+import '../../services/driver_tracking_service.dart';
+import '../support/report_issue_screen.dart';
 import 'contact_passenger_screen.dart';
 import 'recharge_screen.dart';
 
 /// Écran chauffeur : bascule en ligne/hors ligne, liste des demandes de
 /// course ouvertes pour son type de véhicule, et suivi de la course acceptée.
 class DriverHomeScreen extends StatefulWidget {
-  const DriverHomeScreen({super.key, required this.role, required this.driverName});
+  const DriverHomeScreen({
+    super.key,
+    required this.role,
+    required this.driverName,
+  });
 
   final UserRole role;
   final String driverName;
@@ -26,19 +32,39 @@ class DriverHomeScreen extends StatefulWidget {
 class _DriverHomeScreenState extends State<DriverHomeScreen> {
   bool _online = false;
   String? _activeRideId;
+  final DriverTrackingService _trackingService = DriverTrackingService();
 
   VehicleType get _vehicleType => widget.role.vehicleType;
+
+  @override
+  void dispose() {
+    _trackingService.stopTracking();
+    super.dispose();
+  }
+
+  void _toggleOnline(bool value) {
+    setState(() => _online = value);
+    if (value) {
+      _trackingService.startTracking();
+    } else {
+      _trackingService.stopTracking();
+    }
+  }
+
 
   Future<void> _logout() async {
     await FirebaseAuth.instance.signOut();
     if (!mounted) return;
-    Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.onboarding, (route) => false);
+    Navigator.of(context)
+        .pushNamedAndRemoveUntil(AppRoutes.onboarding, (route) => false);
   }
 
   Future<void> _accept(RideRequest request) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
-    final docRef = FirebaseFirestore.instance.collection('ride_requests').doc(request.id);
+    final docRef = FirebaseFirestore.instance
+        .collection('ride_requests')
+        .doc(request.id);
 
     try {
       await FirebaseFirestore.instance.runTransaction((transaction) async {
@@ -66,10 +92,9 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   Future<void> _endRide(RideStatus newStatus) async {
     final id = _activeRideId;
     if (id == null) return;
-    await FirebaseFirestore.instance
-        .collection('ride_requests')
-        .doc(id)
-        .update({'status': newStatus.firestoreValue});
+    await FirebaseFirestore.instance.collection('ride_requests').doc(id).update(
+      {'status': newStatus.firestoreValue},
+    );
     if (!mounted) return;
     setState(() => _activeRideId = null);
   }
@@ -92,18 +117,31 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                           const TextSpan(text: '${AppStrings.homeGreeting} '),
                           TextSpan(
                             text: widget.driverName,
-                            style: const TextStyle(color: AppColors.accentBright),
+                            style: const TextStyle(
+                              color: AppColors.accentBright,
+                            ),
                           ),
                         ],
                       ),
-                      style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 24),
+                      style: Theme.of(context).textTheme.displayLarge
+                          ?.copyWith(fontSize: 24),
                     ),
                   ),
                   IconButton(
-                    onPressed: () =>
-                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RechargeScreen())),
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const RechargeScreen()),
+                    ),
                     icon: const Icon(Icons.account_balance_wallet_outlined),
                     tooltip: AppStrings.driverWallet,
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const ReportIssueScreen(),
+                      ),
+                    ),
+                    icon: const Icon(Icons.report_problem_outlined),
+                    tooltip: AppStrings.reportTitle,
                   ),
                   IconButton(
                     onPressed: _logout,
@@ -113,49 +151,89 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                 ],
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceElevated,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 10,
-                      height: 10,
-                      decoration: BoxDecoration(
-                        color: _online ? AppColors.success : AppColors.textDisabled,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        _online ? AppStrings.driverOnline : AppStrings.driverOffline,
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 16),
-                      ),
-                    ),
-                    Switch(
-                      value: _online,
-                      activeThumbColor: AppColors.accent,
-                      onChanged: _activeRideId == null
-                          ? (value) => setState(() => _online = value)
-                          : null,
-                    ),
-                  ],
-                ),
-              ),
-            ),
             Expanded(
-              child: _activeRideId != null
-                  ? _ActiveRide(rideId: _activeRideId!, onEnd: _endRide)
-                  : !_online
-                      ? const _OfflineNotice()
-                      : _PendingRequestsList(vehicleType: _vehicleType, onAccept: _accept),
+              child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                stream: FirebaseFirestore.instance
+                    .collection('driver_profiles')
+                    .doc(FirebaseAuth.instance.currentUser?.uid)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  final balance =
+                      snapshot.data?.data()?['balance'] as int? ?? 0;
+                  final hasBalance = balance > 0;
+
+                  if (_online && !hasBalance && _activeRideId == null) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) setState(() => _online = false);
+                    });
+                  }
+
+                  return Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 18,
+                            vertical: 14,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceElevated,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 10,
+                                height: 10,
+                                decoration: BoxDecoration(
+                                  color: _online
+                                      ? AppColors.success
+                                      : AppColors.textDisabled,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  _online
+                                      ? AppStrings.driverOnline
+                                      : AppStrings.driverOffline,
+                                  style: Theme.of(context).textTheme.titleLarge
+                                      ?.copyWith(fontSize: 16),
+                                ),
+                              ),
+                              Switch(
+                                value: _online,
+                                activeThumbColor: AppColors.accent,
+                                onChanged: _activeRideId == null && hasBalance
+                                    ? (value) => _toggleOnline(value)
+                                    : null,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: _activeRideId != null
+                            ? _ActiveRide(
+                                rideId: _activeRideId!,
+                                onEnd: _endRide,
+                              )
+                            : !hasBalance
+                            ? const _BalanceRequiredNotice()
+                            : !_online
+                            ? const _OfflineNotice()
+                            : _PendingRequestsList(
+                                vehicleType: _vehicleType,
+                                onAccept: _accept,
+                              ),
+                      ),
+                    ],
+                  );
+                },
+              ),
             ),
           ],
         ),
@@ -203,8 +281,62 @@ class _OfflineNotice extends StatelessWidget {
   }
 }
 
+class _BalanceRequiredNotice extends StatelessWidget {
+  const _BalanceRequiredNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceElevated,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: AppColors.error.withValues(alpha: 0.4),
+                ),
+              ),
+              child: const Icon(
+                Icons.account_balance_wallet_outlined,
+                size: 32,
+                color: AppColors.error,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              AppStrings.driverBalanceRequired,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const RechargeScreen()),
+                ),
+                child: const Text(AppStrings.driverBalanceRequiredCta),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _PendingRequestsList extends StatelessWidget {
-  const _PendingRequestsList({required this.vehicleType, required this.onAccept});
+  const _PendingRequestsList({
+    required this.vehicleType,
+    required this.onAccept,
+  });
 
   final VehicleType vehicleType;
   final ValueChanged<RideRequest> onAccept;
@@ -226,7 +358,11 @@ class _PendingRequestsList extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.search_rounded, size: 40, color: AppColors.textSecondary),
+                  const Icon(
+                    Icons.search_rounded,
+                    size: 40,
+                    color: AppColors.textSecondary,
+                  ),
                   const SizedBox(height: 16),
                   Text(
                     AppStrings.driverNoRequests,
@@ -256,7 +392,9 @@ class _PendingRequestsList extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    request.clientName.isNotEmpty ? request.clientName : AppStrings.driverClient,
+                    request.clientName.isNotEmpty
+                        ? request.clientName
+                        : AppStrings.driverClient,
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const SizedBox(height: 12),
@@ -300,7 +438,10 @@ class _ActiveRide extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance.collection('ride_requests').doc(rideId).snapshots(),
+      stream: FirebaseFirestore.instance
+          .collection('ride_requests')
+          .doc(rideId)
+          .snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData || !snapshot.data!.exists) {
           return const SizedBox.shrink();
@@ -312,14 +453,20 @@ class _ActiveRide extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.accent.withValues(alpha: 0.16),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
                   AppStrings.driverAcceptedRide,
-                  style: const TextStyle(color: AppColors.accentBright, fontWeight: FontWeight.w700),
+                  style: const TextStyle(
+                    color: AppColors.accentBright,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
               const SizedBox(height: 18),
@@ -335,7 +482,9 @@ class _ActiveRide extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      request.clientName.isNotEmpty ? request.clientName : AppStrings.driverClient,
+                      request.clientName.isNotEmpty
+                          ? request.clientName
+                          : AppStrings.driverClient,
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                     const SizedBox(height: 14),
@@ -359,9 +508,11 @@ class _ActiveRide extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                  onPressed: () => Navigator.of(
-                    context,
-                  ).push(MaterialPageRoute(builder: (_) => ContactPassengerScreen(ride: request))),
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => ContactPassengerScreen(ride: request),
+                    ),
+                  ),
                   icon: const Icon(Icons.call_rounded, size: 18),
                   label: const Text(AppStrings.driverContactPassenger),
                 ),

@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:latlong2/latlong.dart';
 
 import 'vehicle_type.dart';
 
@@ -109,3 +109,4 @@ class RideRequest {
     );
   }
 }
+

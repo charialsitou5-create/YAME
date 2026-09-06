@@ -1,9 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../core/constants/app_strings.dart';
 import '../../core/theme/app_colors.dart';
@@ -31,7 +32,7 @@ class BookingScreen extends StatefulWidget {
 
 class _BookingScreenState extends State<BookingScreen> {
   final _geocoding = Geocoding();
-  GoogleMapController? _mapController;
+  final MapController _mapController = MapController();
 
   LatLng? _pickupPosition;
   LatLng? _destinationPosition;
@@ -96,7 +97,7 @@ class _BookingScreenState extends State<BookingScreen> {
     });
 
     if (animateCamera) {
-      _mapController?.animateCamera(CameraUpdate.newLatLngZoom(point, 15));
+      _mapController.move(point, 15);
     }
 
     final address = await _reverseGeocode(point);
@@ -129,7 +130,7 @@ class _BookingScreenState extends State<BookingScreen> {
     }
   }
 
-  void _onMapTap(LatLng point) {
+  void _onMapTap(TapPosition tapPosition, LatLng point) {
     _setPoint(_pickMode, point);
   }
 
@@ -197,7 +198,35 @@ class _BookingScreenState extends State<BookingScreen> {
         .update({'status': RideStatus.cancelled.firestoreValue});
   }
 
+  List<Marker> _buildStaticMarkers() {
+    return [
+      if (_pickupPosition != null)
+        Marker(
+          point: _pickupPosition!,
+          width: 40,
+          height: 40,
+          child: const Icon(
+            Icons.location_on,
+            color: Colors.green,
+            size: 40,
+          ),
+        ),
+      if (_destinationPosition != null)
+        Marker(
+          point: _destinationPosition!,
+          width: 40,
+          height: 40,
+          child: const Icon(
+            Icons.location_on,
+            color: Colors.orange,
+            size: 40,
+          ),
+        ),
+    ];
+  }
+
   void _startNewBooking() {
+
     setState(() {
       _activeRequestId = null;
       _recipient = null;
@@ -211,28 +240,82 @@ class _BookingScreenState extends State<BookingScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          GoogleMap(
-            initialCameraPosition: const CameraPosition(target: _pointeNoireCenter, zoom: 13),
-            onMapCreated: (controller) => _mapController = controller,
-            onTap: _onMapTap,
-            myLocationEnabled: true,
-            myLocationButtonEnabled: false,
-            zoomControlsEnabled: false,
-            markers: {
-              if (_pickupPosition != null)
-                Marker(
-                  markerId: const MarkerId('pickup'),
-                  position: _pickupPosition!,
-                  icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
-                ),
-              if (_destinationPosition != null)
-                Marker(
-                  markerId: const MarkerId('destination'),
-                  position: _destinationPosition!,
-                  icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
-                ),
-            },
+          FlutterMap(
+            mapController: _mapController,
+            options: MapOptions(
+              initialCenter: _pointeNoireCenter,
+              initialZoom: 13,
+              onTap: _onMapTap,
+            ),
+            children: [
+              TileLayer(
+                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                userAgentPackageName: 'com.yame.yame',
+              ),
+              StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                stream: _activeRequestId != null
+                    ? FirebaseFirestore.instance
+                        .collection('ride_requests')
+                        .doc(_activeRequestId)
+                        .snapshots()
+                    : const Stream.empty(),
+                builder: (context, rideSnap) {
+                  final driverUid = rideSnap.data?.data()?['driverUid'] as String?;
+                  if (driverUid == null) {
+                    return MarkerLayer(markers: _buildStaticMarkers());
+                  }
+
+                  return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                    stream: FirebaseFirestore.instance
+                        .collection('driver_profiles')
+                        .doc(driverUid)
+                        .snapshots(),
+                    builder: (context, driverSnap) {
+                      final locationData = driverSnap.data?.data()?['currentLocation'] as Map<String, dynamic>?;
+                      LatLng? driverPos;
+                      if (locationData != null && locationData['lat'] != null && locationData['lng'] != null) {
+                        driverPos = LatLng(
+                          (locationData['lat'] as num).toDouble(),
+                          (locationData['lng'] as num).toDouble(),
+                        );
+                      }
+
+                      return MarkerLayer(
+                        markers: [
+                          ..._buildStaticMarkers(),
+                          if (driverPos != null)
+                            Marker(
+                              point: driverPos,
+                              width: 44,
+                              height: 44,
+                              child: Container(
+                                decoration: const BoxDecoration(
+                                  color: AppColors.accent,
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black38,
+                                      blurRadius: 6,
+                                    ),
+                                  ],
+                                ),
+                                child: const Icon(
+                                  Icons.directions_car_filled_rounded,
+                                  color: Colors.black,
+                                  size: 26,
+                                ),
+                              ),
+                            ),
+                        ],
+                      );
+                    },
+                  );
+                },
+              ),
+            ],
           ),
+
+
           if (_locating)
             const Positioned(
               top: 56,

@@ -6,15 +6,16 @@ import '../../core/constants/app_strings.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/app_user.dart';
 import '../../routes/app_routes.dart';
+import '../support/report_issue_screen.dart';
 
 /// Onglet Profil : identité, activités, réglages du compte.
 class ProfilScreen extends StatelessWidget {
   const ProfilScreen({super.key});
 
   void _showComingSoon(BuildContext context) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text(AppStrings.socialAuthComingSoon)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text(AppStrings.socialAuthComingSoon)),
+    );
   }
 
   void _showAbout(BuildContext context) {
@@ -29,7 +30,8 @@ class ProfilScreen extends StatelessWidget {
   Future<void> _logout(BuildContext context) async {
     await FirebaseAuth.instance.signOut();
     if (!context.mounted) return;
-    Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.onboarding, (route) => false);
+    Navigator.of(context)
+        .pushNamedAndRemoveUntil(AppRoutes.onboarding, (route) => false);
   }
 
   @override
@@ -40,10 +42,15 @@ class ProfilScreen extends StatelessWidget {
       child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
         stream: uid == null
             ? null
-            : FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
+            : FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(uid)
+                  .snapshots(),
         builder: (context, snapshot) {
           final data = snapshot.data?.data();
-          final user = (uid != null && data != null) ? AppUser.fromMap(uid, data) : null;
+          final user = (uid != null && data != null)
+              ? AppUser.fromMap(uid, data)
+              : null;
 
           return ListView(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
@@ -51,15 +58,25 @@ class ProfilScreen extends StatelessWidget {
               Row(
                 children: [
                   Expanded(
-                    child: Text(AppStrings.navProfile, style: Theme.of(context).textTheme.headlineMedium),
+                    child: Text(
+                      AppStrings.navProfile,
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    ),
                   ),
                   const Icon(Icons.notifications_none_rounded, size: 26),
                 ],
               ),
               const SizedBox(height: 20),
-              _ProfileCard(name: user?.name ?? '', phone: user?.phone ?? '', email: user?.email),
+              _ProfileCard(
+                name: user?.name ?? '',
+                phone: user?.phone ?? '',
+                email: user?.email,
+              ),
               const SizedBox(height: 24),
-              Text(AppStrings.profileActivities, style: Theme.of(context).textTheme.titleLarge),
+              Text(
+                AppStrings.profileActivities,
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
               const SizedBox(height: 14),
               Row(
                 children: [
@@ -145,7 +162,11 @@ class ProfilScreen extends StatelessWidget {
                       icon: Icons.support_agent_outlined,
                       title: AppStrings.profileHelp,
                       subtitle: AppStrings.profileHelpSubtitle,
-                      onTap: () => _showComingSoon(context),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const ReportIssueScreen(),
+                        ),
+                      ),
                     ),
                     const _RowDivider(),
                     _SettingsRow(
@@ -163,7 +184,9 @@ class ProfilScreen extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: AppColors.surface,
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
+                  border: Border.all(
+                    color: AppColors.accent.withValues(alpha: 0.3),
+                  ),
                 ),
                 child: Row(
                   children: [
@@ -175,12 +198,16 @@ class ProfilScreen extends StatelessWidget {
                         children: [
                           Text(
                             AppStrings.profilePremiumTitle,
-                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 15,
+                            ),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             AppStrings.profilePremiumBody,
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 12.5),
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(fontSize: 12.5),
                           ),
                         ],
                       ),
@@ -216,7 +243,11 @@ class ProfilScreen extends StatelessWidget {
 }
 
 class _ProfileCard extends StatelessWidget {
-  const _ProfileCard({required this.name, required this.phone, required this.email});
+  const _ProfileCard({
+    required this.name,
+    required this.phone,
+    required this.email,
+  });
 
   final String name;
   final String phone;
@@ -237,7 +268,10 @@ class _ProfileCard extends StatelessWidget {
             width: 64,
             height: 64,
             alignment: Alignment.center,
-            decoration: const BoxDecoration(color: AppColors.accent, shape: BoxShape.circle),
+            decoration: const BoxDecoration(
+              color: AppColors.accent,
+              shape: BoxShape.circle,
+            ),
             child: Text(
               name.isNotEmpty ? name[0].toUpperCase() : '?',
               style: const TextStyle(
@@ -254,7 +288,10 @@ class _ProfileCard extends StatelessWidget {
               children: [
                 Text(
                   name,
-                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 18,
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
@@ -271,7 +308,10 @@ class _ProfileCard extends StatelessWidget {
                   ),
                 const SizedBox(height: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.accent.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(20),
@@ -279,7 +319,11 @@ class _ProfileCard extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.star_rounded, size: 14, color: AppColors.accentBright),
+                      const Icon(
+                        Icons.star_rounded,
+                        size: 14,
+                        color: AppColors.accentBright,
+                      ),
                       const SizedBox(width: 5),
                       Text(
                         AppStrings.profileMember,
@@ -302,7 +346,11 @@ class _ProfileCard extends StatelessWidget {
 }
 
 class _ActivityStat extends StatelessWidget {
-  const _ActivityStat({required this.icon, required this.label, required this.onTap});
+  const _ActivityStat({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
 
   final IconData icon;
   final String label;
@@ -329,7 +377,10 @@ class _ActivityStat extends StatelessWidget {
               Text(
                 label,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
           ),
@@ -374,16 +425,28 @@ class _SettingsRow extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: TextStyle(fontWeight: FontWeight.w600, color: titleColor ?? AppColors.textPrimary),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: titleColor ?? AppColors.textPrimary,
+                    ),
                   ),
                   if (subtitle != null) ...[
                     const SizedBox(height: 2),
-                    Text(subtitle!, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12.5)),
+                    Text(
+                      subtitle!,
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12.5,
+                      ),
+                    ),
                   ],
                 ],
               ),
             ),
-            Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary.withValues(alpha: 0.7)),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: AppColors.textSecondary.withValues(alpha: 0.7),
+            ),
           ],
         ),
       ),
@@ -407,6 +470,11 @@ class _RowDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Divider(height: 1, indent: 16, endIndent: 16, color: AppColors.border);
+    return const Divider(
+      height: 1,
+      indent: 16,
+      endIndent: 16,
+      color: AppColors.border,
+    );
   }
 }
