@@ -36,18 +36,23 @@ class DriverTrackingService {
     });
   }
 
-  /// Met à jour la position GPS du chauffeur dans sa fiche Firestore
+  /// Met à jour la position GPS du chauffeur dans sa sous-collection privée
+  /// `driver_profiles/{uid}/location/current` (jamais dans la fiche
+  /// principale, lisible par tout utilisateur connecté).
   Future<void> _updateDriverLocationInFirestore(String uid, Position position) async {
     try {
-      await FirebaseFirestore.instance.collection('driver_profiles').doc(uid).update({
-        'currentLocation': {
-          'lat': position.latitude,
-          'lng': position.longitude,
-          'heading': position.heading,
-          'speed': position.speed,
-          'updatedAt': FieldValue.serverTimestamp(),
-        },
-      });
+      await FirebaseFirestore.instance
+          .collection('driver_profiles')
+          .doc(uid)
+          .collection('location')
+          .doc('current')
+          .set({
+        'lat': position.latitude,
+        'lng': position.longitude,
+        'heading': position.heading,
+        'speed': position.speed,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
     } catch (_) {}
   }
 

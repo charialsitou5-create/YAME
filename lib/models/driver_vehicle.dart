@@ -45,7 +45,6 @@ class DriverVehicle {
       if (registrationCardUrl != null)
         'registrationCardUrl': registrationCardUrl,
       if (licenseUrl != null) 'licenseUrl': licenseUrl,
-      'balance': 0,
       'status': 'pending_verification',
       'createdAt': DateTime.now().toIso8601String(),
     };

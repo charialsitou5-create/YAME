@@ -144,6 +144,14 @@ class _VehicleRegistrationWizardState extends State<VehicleRegistrationWizard> {
           .collection('driver_profiles')
           .doc(uid)
           .set(vehicle.toMap());
+      // Solde initialisé à 0 dans sa propre sous-collection, jamais dans
+      // la fiche principale (voir firestore.rules : driver_profiles/wallet).
+      await FirebaseFirestore.instance
+          .collection('driver_profiles')
+          .doc(uid)
+          .collection('wallet')
+          .doc('current')
+          .set({'balance': 0});
       await FirebaseFirestore.instance.collection('users').doc(uid).update({
         'vehicleRegistered': true,
       });

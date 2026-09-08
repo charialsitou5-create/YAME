@@ -48,7 +48,12 @@ class RechargeScreen extends StatelessWidget {
                     StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
                       stream: uid == null
                           ? null
-                          : FirebaseFirestore.instance.collection('driver_profiles').doc(uid).snapshots(),
+                          : FirebaseFirestore.instance
+                              .collection('driver_profiles')
+                              .doc(uid)
+                              .collection('wallet')
+                              .doc('current')
+                              .snapshots(),
                       builder: (context, snapshot) {
                         final balance = snapshot.data?.data()?['balance'] as int? ?? 0;
                         return Text(

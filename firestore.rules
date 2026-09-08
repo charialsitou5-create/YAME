@@ -7,32 +7,60 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Fiche véhicule d'un chauffeur (assistant d'inscription en 3 étapes,
-    // solde du portefeuille, position GPS live). Le propriétaire voit
-    // toujours sa propre fiche (y compris en attente de validation, avec
-    // ses documents d'identité). Les autres utilisateurs connectés ne la
-    // voient que si le chauffeur est déjà approuvé — une fiche encore en
-    // attente/refusée (documents, permis) n'est visible que par son
-    // propriétaire et l'admin (Admin SDK, qui ignore ces règles).
-    // Le chauffeur peut créer sa fiche et corriger ses infos/photos, mais
-    // ne peut jamais modifier lui-même `status` ou `balance` — ces deux
-    // champs ne changent que via le panneau admin (Firebase Admin SDK,
-    // qui ignore ces règles) : validation d'inscription et recharge de
-    // solde.
+    // Fiche véhicule d'un chauffeur (assistant d'inscription en 3 étapes).
+    // Le propriétaire voit toujours sa propre fiche (y compris en attente
+    // de validation, avec ses documents d'identité). Les autres
+    // utilisateurs connectés ne la voient que si le chauffeur est déjà
+    // approuvé — une fiche encore en attente/refusée (documents, permis)
+    // n'est visible que par son propriétaire et l'admin (Admin SDK, qui
+    // ignore ces règles). Le chauffeur peut créer sa fiche et corriger ses
+    // infos/photos, mais ne peut jamais modifier lui-même `status` — ce
+    // champ ne change que via le panneau admin (validation d'inscription).
+    //
+    // Le solde (`wallet/current`) et la position GPS live
+    // (`location/current`) vivent dans des sous-collections séparées,
+    // chacune avec ses propres règles ci-dessous — pas dans ce document —
+    // pour qu'ils ne soient jamais exposés au même titre que le
+    // modèle/la plaque du véhicule à n'importe quel utilisateur connecté.
     match /driver_profiles/{driverId} {
       allow read: if request.auth != null && (
         request.auth.uid == driverId || resource.data.status == 'approved'
       );
 
       allow create: if request.auth != null && request.auth.uid == driverId
-        && request.resource.data.status == 'pending_verification'
-        && request.resource.data.balance == 0;
+        && request.resource.data.status == 'pending_verification';
 
       allow update: if request.auth != null && request.auth.uid == driverId
-        && request.resource.data.status == resource.data.status
-        && request.resource.data.balance == resource.data.balance;
+        && request.resource.data.status == resource.data.status;
 
       allow delete: if false;
+
+      // Solde du portefeuille : jamais lisible ni modifiable par qui que
+      // ce soit d'autre que le chauffeur propriétaire (en lecture), et par
+      // le chauffeur lui-même seulement à la création (initialisée à 0).
+      // Toute recharge passe ensuite exclusivement par le panneau admin
+      // (Firebase Admin SDK, qui ignore ces règles) — plus aucune écriture
+      // cliente possible une fois le document créé.
+      match /wallet/{docId} {
+        allow read: if request.auth != null && request.auth.uid == driverId;
+        allow create: if request.auth != null && request.auth.uid == driverId
+          && request.resource.data.balance == 0;
+        allow update, delete: if false;
+      }
+
+      // Position GPS live : modifiable uniquement par le chauffeur
+      // propriétaire (diffusion en continu pendant qu'il est en ligne).
+      // Lisible par lui-même, ou par le client actuellement mis en
+      // relation avec lui — `activeClientUid` est posé par le chauffeur
+      // au moment où il accepte une course et effacé à la fin de celle-ci
+      // (voir `driver_home_screen.dart`), jamais par un tiers.
+      match /location/{docId} {
+        allow read: if request.auth != null && (
+          request.auth.uid == driverId ||
+          (resource != null && resource.data.get('activeClientUid', null) == request.auth.uid)
+        );
+        allow write: if request.auth != null && request.auth.uid == driverId;
+      }
     }
 
     // Demandes de course : un chauffeur doit pouvoir parcourir les demandes

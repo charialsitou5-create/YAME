@@ -65,6 +65,11 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     final docRef = FirebaseFirestore.instance
         .collection('ride_requests')
         .doc(request.id);
+    final locationRef = FirebaseFirestore.instance
+        .collection('driver_profiles')
+        .doc(uid)
+        .collection('location')
+        .doc('current');
 
     try {
       await FirebaseFirestore.instance.runTransaction((transaction) async {
@@ -78,6 +83,13 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
           'driverUid': uid,
           'driverName': widget.driverName,
         });
+        // Autorise le client de cette course à lire la position GPS live
+        // du chauffeur (firestore.rules : driver_profiles/location).
+        transaction.set(
+          locationRef,
+          {'activeClientUid': request.clientUid},
+          SetOptions(merge: true),
+        );
       });
       if (!mounted) return;
       setState(() => _activeRideId = request.id);
@@ -92,9 +104,20 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   Future<void> _endRide(RideStatus newStatus) async {
     final id = _activeRideId;
     if (id == null) return;
+    final uid = FirebaseAuth.instance.currentUser?.uid;
     await FirebaseFirestore.instance.collection('ride_requests').doc(id).update(
       {'status': newStatus.firestoreValue},
     );
+    if (uid != null) {
+      // Révoque l'accès du client à la position GPS live maintenant que
+      // la course est terminée/annulée.
+      await FirebaseFirestore.instance
+          .collection('driver_profiles')
+          .doc(uid)
+          .collection('location')
+          .doc('current')
+          .set({'activeClientUid': FieldValue.delete()}, SetOptions(merge: true));
+    }
     if (!mounted) return;
     setState(() => _activeRideId = null);
   }
@@ -156,6 +179,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                 stream: FirebaseFirestore.instance
                     .collection('driver_profiles')
                     .doc(FirebaseAuth.instance.currentUser?.uid)
+                    .collection('wallet')
+                    .doc('current')
                     .snapshots(),
                 builder: (context, snapshot) {
                   final balance =

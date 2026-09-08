@@ -269,9 +269,11 @@ class _BookingScreenState extends State<BookingScreen> {
                     stream: FirebaseFirestore.instance
                         .collection('driver_profiles')
                         .doc(driverUid)
+                        .collection('location')
+                        .doc('current')
                         .snapshots(),
                     builder: (context, driverSnap) {
-                      final locationData = driverSnap.data?.data()?['currentLocation'] as Map<String, dynamic>?;
+                      final locationData = driverSnap.data?.data();
                       LatLng? driverPos;
                       if (locationData != null && locationData['lat'] != null && locationData['lng'] != null) {
                         driverPos = LatLng(
