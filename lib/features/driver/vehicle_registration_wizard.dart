@@ -152,6 +152,17 @@ class _VehicleRegistrationWizardState extends State<VehicleRegistrationWizard> {
           .collection('wallet')
           .doc('current')
           .set({'balance': 0});
+      // Documents d'identité (carte grise, permis, photos) dans leur propre
+      // sous-collection privée (voir firestore.rules : driver_profiles/documents).
+      final documentsMap = vehicle.toDocumentsMap();
+      if (documentsMap.isNotEmpty) {
+        await FirebaseFirestore.instance
+            .collection('driver_profiles')
+            .doc(uid)
+            .collection('documents')
+            .doc('current')
+            .set(documentsMap);
+      }
       await FirebaseFirestore.instance.collection('users').doc(uid).update({
         'vehicleRegistered': true,
       });

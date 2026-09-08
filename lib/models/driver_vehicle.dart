@@ -33,6 +33,9 @@ class DriverVehicle {
   final String? registrationCardUrl;
   final String? licenseUrl;
 
+  /// Champs publics du véhicule (visibles par tout utilisateur connecté une
+  /// fois le chauffeur approuvé) — sans les documents d'identité, qui vont
+  /// dans une sous-collection privée séparée, voir [toDocumentsMap].
   Map<String, dynamic> toMap() {
     return {
       'vehicleType': vehicleType.name,
@@ -41,12 +44,21 @@ class DriverVehicle {
       'plate': plate,
       'seats': seats,
       if (color != null && color!.isNotEmpty) 'color': color,
+      'status': 'pending_verification',
+      'createdAt': DateTime.now().toIso8601String(),
+    };
+  }
+
+  /// Documents d'identité (carte grise, permis, photos du véhicule) — écrits
+  /// dans `driver_profiles/{uid}/documents/current`, lisible uniquement par
+  /// le chauffeur propriétaire et l'admin (Admin SDK), jamais par tout
+  /// utilisateur connecté comme le reste de la fiche.
+  Map<String, dynamic> toDocumentsMap() {
+    return {
       if (photoUrls.isNotEmpty) 'photoUrls': photoUrls,
       if (registrationCardUrl != null)
         'registrationCardUrl': registrationCardUrl,
       if (licenseUrl != null) 'licenseUrl': licenseUrl,
-      'status': 'pending_verification',
-      'createdAt': DateTime.now().toIso8601String(),
     };
   }
 }
