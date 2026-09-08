@@ -97,6 +97,16 @@ class AppStrings {
   static const bookingCancelled = 'Course annulée.';
   static const bookingAccepted = 'Chauffeur trouvé';
   static const bookingDriverOnTheWay = 'arrive pour vous prendre en charge.';
+  static const bookingSharePosition = 'Partager ma position';
+  static const bookingSharePositionSheetTitle = 'Partager ma position avec un proche';
+  static const bookingSharePositionWhatsapp = 'WhatsApp';
+  static const bookingSharePositionSms = 'SMS';
+  static const bookingSharePositionCopy = 'Copier le lien';
+  static const bookingSharePositionCopied = 'Lien copié dans le presse-papiers.';
+  static const bookingSharePositionMessage =
+      'Voici ma position actuelle en course avec Yame :';
+  static const bookingSharePositionError =
+      'Impossible de récupérer votre position pour le moment.';
   static const bookingNewRequest = 'Nouvelle réservation';
   static const bookingCompletedTitle = 'Course terminée';
   static const bookingRateDriver = 'Noter le chauffeur';

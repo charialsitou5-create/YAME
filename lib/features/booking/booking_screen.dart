@@ -1,10 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/constants/app_strings.dart';
 import '../../core/theme/app_colors.dart';
@@ -634,6 +636,35 @@ class _RideStatusPanel extends StatelessWidget {
     onNewBooking();
   }
 
+  Future<void> _sharePosition(BuildContext context) async {
+    try {
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        throw StateError('denied');
+      }
+      final position = await Geolocator.getCurrentPosition();
+      final link = 'https://maps.google.com/?q=${position.latitude},${position.longitude}';
+      if (!context.mounted) return;
+      await showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: AppColors.surfaceElevated,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (_) => _SharePositionSheet(link: link),
+      );
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.bookingSharePositionError)),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -668,6 +699,12 @@ class _RideStatusPanel extends StatelessWidget {
                 '${ride?.driverName?.isNotEmpty == true ? ride!.driverName : AppStrings.driverClient} ${AppStrings.bookingDriverOnTheWay}',
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                onPressed: () => _sharePosition(context),
+                icon: const Icon(Icons.share_location_rounded, size: 18),
+                label: const Text(AppStrings.bookingSharePosition),
+              ),
             ],
           RideStatus.completed => [
               Text(AppStrings.bookingCompletedTitle, style: Theme.of(context).textTheme.titleLarge),
@@ -696,6 +733,74 @@ class _RideStatusPanel extends StatelessWidget {
               ),
             ],
         },
+      ),
+    );
+  }
+}
+
+/// Feuille modale proposant de partager un lien Google Maps vers la
+/// position actuelle de l'utilisateur (instantané, pas de suivi live) via
+/// WhatsApp, SMS, ou en le copiant dans le presse-papiers.
+class _SharePositionSheet extends StatelessWidget {
+  const _SharePositionSheet({required this.link});
+
+  final String link;
+
+  Future<void> _openWhatsapp(BuildContext context) async {
+    final text = Uri.encodeComponent('${AppStrings.bookingSharePositionMessage} $link');
+    final launched = await launchUrl(Uri.parse('https://wa.me/?text=$text'));
+    if (!launched && context.mounted) Navigator.of(context).pop();
+  }
+
+  Future<void> _openSms(BuildContext context) async {
+    final body = Uri.encodeComponent('${AppStrings.bookingSharePositionMessage} $link');
+    final launched = await launchUrl(Uri.parse('sms:?body=$body'));
+    if (!launched && context.mounted) Navigator.of(context).pop();
+  }
+
+  Future<void> _copyLink(BuildContext context) async {
+    await Clipboard.setData(ClipboardData(text: link));
+    if (!context.mounted) return;
+    Navigator.of(context).pop();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text(AppStrings.bookingSharePositionCopied)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              AppStrings.bookingSharePositionSheetTitle,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.chat_rounded, color: AppColors.success),
+              title: const Text(AppStrings.bookingSharePositionWhatsapp),
+              onTap: () => _openWhatsapp(context),
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.sms_rounded, color: Color(0xFF3B82F6)),
+              title: const Text(AppStrings.bookingSharePositionSms),
+              onTap: () => _openSms(context),
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.copy_rounded, color: AppColors.textSecondary),
+              title: const Text(AppStrings.bookingSharePositionCopy),
+              onTap: () => _copyLink(context),
+            ),
+          ],
+        ),
       ),
     );
   }
