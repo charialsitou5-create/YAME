@@ -54,6 +54,17 @@ même requête que celle déjà utilisée par `HomeScreen`).
 
 ## Écran par écran
 
+### `OnboardingScreen` / `SignupScreen`
+
+Le choix "Client / Chauffeur voiture / Chauffeur moto" à l'écran d'accueil
+reste tel quel dans l'esprit, mais ne pousse plus un `UserRole` en argument
+de route — il pousse un `VehicleType?` (`null` = client). `SignupScreen` crée
+le compte avec `activeMode: vehicleType == null ? AppMode.client :
+AppMode.driver` et `driverVehicleType: vehicleType`, pour reproduire
+exactement le comportement actuel (un choix "chauffeur" à l'inscription
+atterrit directement dans `DriverIntroScreen`, pas dans `ClientShell`) tout
+en posant déjà `driverVehicleType` sans attendre la fin de l'assistant.
+
 ### `HomeScreen`
 
 Devient l'unique aiguilleur, sur `activeMode` (au lieu de `role`) :
@@ -124,7 +135,7 @@ sur le compte qui agit) :**
 Une fois une demande `accepted`, seul le chauffeur peut la faire passer à
 `completed`/`cancelled` (règle existante) — le client n'a aucun write path
 sur ce changement de statut, donc pas de batch possible côté client à ce
-moment-là. Le client doit détecter la fin de course lui-même : `ClientShell`
+moment-là. Le client doit détecter la fin de course lui-même : `BookingScreen`
 écoute déjà en direct le document `ride_requests` de sa course active (pour
 l'affichage du statut/les messages) ; quand ce listener observe `status`
 passer à `completed` ou `cancelled`, l'app du client fait une écriture
@@ -132,6 +143,19 @@ séparée sur son propre document pour clear `clientActiveRideId`. Léger
 délai possible entre la fin réelle de la course et la levée du blocage côté
 client (le temps que son propre listener réagisse) — négligeable, ce
 listener est déjà actif pour d'autres besoins de l'écran.
+
+**Piège existant à corriger au passage** : `_activeRequestId` (côté client,
+`BookingScreen`) et `_activeRideId` (côté chauffeur, `DriverHomeScreen`) ne
+sont aujourd'hui que de l'état local (`State`), jamais reconstruits — un
+redémarrage de l'app pendant une course en cours perd cette référence, donc
+plus aucun listener n'observe jamais la fin de cette course. Sans correction,
+`clientActiveRideId`/`driverActiveRideId` resteraient bloqués indéfiniment
+après un redémarrage en pleine course, cassant définitivement le bouton de
+bascule pour ce compte. Les deux écrans doivent donc, à l'ouverture,
+relire leur propre champ actif-ride sur `users/{uid}` et, s'il est renseigné,
+réinitialiser `_activeRequestId`/`_activeRideId` avec cette valeur pour
+rétablir l'écoute — ce n'est pas une fonctionnalité à part, c'est ce qui
+rend le blocage fiable.
 
 ## Règles Firestore
 
