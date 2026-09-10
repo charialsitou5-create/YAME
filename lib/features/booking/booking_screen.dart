@@ -50,11 +50,23 @@ class _BookingScreenState extends State<BookingScreen> {
   String? _activeRequestId;
   bool _submittingRequest = false;
   RideRecipient? _recipient;
+  bool _clientActiveRideCleared = false;
 
   @override
   void initState() {
     super.initState();
     _locateMe();
+    _recoverActiveRequest();
+  }
+
+  Future<void> _recoverActiveRequest() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+    final activeId = doc.data()?['clientActiveRideId'] as String?;
+    if (activeId != null && mounted) {
+      setState(() => _activeRequestId = activeId);
+    }
   }
 
   Future<void> _locateMe() async {
@@ -175,12 +187,19 @@ class _BookingScreenState extends State<BookingScreen> {
         recipientInstructions: _recipient?.instructions,
         contactRequesterInstead: _recipient?.contactRequesterInstead ?? false,
       );
-      final doc = await FirebaseFirestore.instance
-          .collection('ride_requests')
-          .add(request.toMap());
+      final requestRef = FirebaseFirestore.instance.collection('ride_requests').doc();
+      final batch = FirebaseFirestore.instance.batch()
+        ..set(requestRef, request.toMap())
+        ..update(FirebaseFirestore.instance.collection('users').doc(user.uid), {
+          'clientActiveRideId': requestRef.id,
+        });
+      await batch.commit();
 
       if (!mounted) return;
-      setState(() => _activeRequestId = doc.id);
+      setState(() {
+        _activeRequestId = requestRef.id;
+        _clientActiveRideCleared = false;
+      });
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -193,11 +212,17 @@ class _BookingScreenState extends State<BookingScreen> {
 
   Future<void> _cancelRequest() async {
     final id = _activeRequestId;
-    if (id == null) return;
-    await FirebaseFirestore.instance
-        .collection('ride_requests')
-        .doc(id)
-        .update({'status': RideStatus.cancelled.firestoreValue});
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (id == null || uid == null) return;
+    final batch = FirebaseFirestore.instance.batch()
+      ..update(FirebaseFirestore.instance.collection('ride_requests').doc(id), {
+        'status': RideStatus.cancelled.firestoreValue,
+      })
+      ..update(FirebaseFirestore.instance.collection('users').doc(uid), {
+        'clientActiveRideId': null,
+      });
+    await batch.commit();
+    _clientActiveRideCleared = true;
   }
 
   List<Marker> _buildStaticMarkers() {
@@ -228,10 +253,10 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   void _startNewBooking() {
-
     setState(() {
       _activeRequestId = null;
       _recipient = null;
+      _clientActiveRideCleared = false;
     });
   }
 
@@ -388,6 +413,19 @@ class _BookingScreenState extends State<BookingScreen> {
                     builder: (context, snapshot) {
                       final doc = snapshot.data;
                       final ride = (doc != null && doc.exists) ? RideRequest.fromDoc(doc) : null;
+                      if (ride != null &&
+                          !_clientActiveRideCleared &&
+                          (ride.status == RideStatus.completed ||
+                              ride.status == RideStatus.cancelled)) {
+                        _clientActiveRideCleared = true;
+                        final uid = FirebaseAuth.instance.currentUser?.uid;
+                        if (uid != null) {
+                          FirebaseFirestore.instance
+                              .collection('users')
+                              .doc(uid)
+                              .update({'clientActiveRideId': null});
+                        }
+                      }
                       return _RideStatusPanel(
                         status: ride?.status ?? RideStatus.searching,
                         ride: ride,
