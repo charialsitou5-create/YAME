@@ -2,9 +2,27 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Chaque utilisateur ne peut lire/écrire que son propre profil.
+    // Chaque utilisateur ne peut lire/écrire que son propre profil. Un
+    // changement de `activeMode` (bascule client/chauffeur, voir
+    // ProfilScreen) est en plus soumis à ce qu'aucune course ne soit active
+    // dans le mode qu'on quitte — clientActiveRideId/driverActiveRideId sont
+    // tenus à jour par l'app aux points de transition d'une course (voir
+    // booking_screen.dart / driver_home_screen.dart). Ça bloque les bascules
+    // accidentelles/bugs UI, pas un client qui bricolerait ces deux champs à
+    // la main via une requête Firestore brute — un blindage complet
+    // demanderait une Cloud Function, hors scope ici (cohérent avec le
+    // reste de ce fichier, qui fait déjà confiance à des invariants basés
+    // sur `diff().affectedKeys()` plutôt que sur des Cloud Functions).
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update: if request.auth != null && request.auth.uid == userId && (
+        request.resource.data.get('activeMode', null) == resource.data.get('activeMode', null)
+        || (resource.data.get('activeMode', null) == 'client'
+            ? resource.data.get('clientActiveRideId', null) == null
+            : resource.data.get('driverActiveRideId', null) == null)
+      );
+      allow delete: if false;
     }
 
     // Fiche véhicule d'un chauffeur (assistant d'inscription en 3 étapes).
