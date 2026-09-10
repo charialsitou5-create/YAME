@@ -4,15 +4,16 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants/app_strings.dart';
 import '../../core/theme/app_colors.dart';
+import '../../models/app_mode.dart';
 import '../../models/app_user.dart';
-import '../../models/user_role.dart';
+import '../../models/vehicle_type.dart';
 import '../../routes/app_routes.dart';
 
 /// Inscription : nom, téléphone, e-mail, mot de passe.
 class SignupScreen extends StatefulWidget {
-  const SignupScreen({super.key, required this.role});
+  const SignupScreen({super.key, required this.vehicleType});
 
-  final UserRole role;
+  final VehicleType? vehicleType;
 
   @override
   State<SignupScreen> createState() => _SignupScreenState();
@@ -58,7 +59,8 @@ class _SignupScreenState extends State<SignupScreen> {
         name: _nameController.text.trim(),
         phone: _phoneController.text.trim(),
         email: _emailController.text.trim(),
-        role: widget.role,
+        activeMode: widget.vehicleType == null ? AppMode.client : AppMode.driver,
+        driverVehicleType: widget.vehicleType,
       );
       await FirebaseFirestore.instance.collection('users').doc(uid).set(user.toMap());
 

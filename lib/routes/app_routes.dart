@@ -4,7 +4,7 @@ import '../features/auth/auth_gate.dart';
 import '../features/auth/login_screen.dart';
 import '../features/auth/signup_screen.dart';
 import '../features/home/home_screen.dart';
-import '../models/user_role.dart';
+import '../models/vehicle_type.dart';
 
 /// Table de routage nommée de l'application.
 class AppRoutes {
@@ -20,8 +20,8 @@ class AppRoutes {
       case onboarding:
         return MaterialPageRoute(builder: (_) => const AuthGate());
       case signup:
-        final role = settings.arguments as UserRole? ?? UserRole.client;
-        return MaterialPageRoute(builder: (_) => SignupScreen(role: role));
+        final vehicleType = settings.arguments as VehicleType?;
+        return MaterialPageRoute(builder: (_) => SignupScreen(vehicleType: vehicleType));
       case login:
         return MaterialPageRoute(builder: (_) => const LoginScreen());
       case home:

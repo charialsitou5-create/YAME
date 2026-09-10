@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants/app_strings.dart';
 import '../../core/theme/app_colors.dart';
-import '../../models/user_role.dart';
+import '../../models/vehicle_type.dart';
 import '../../routes/app_routes.dart';
 
 /// Écran d'accueil de marque et sélection de profil, sur la photo du
@@ -64,27 +64,30 @@ class OnboardingScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   _RoleCard(
-                    role: UserRole.client,
+                    label: AppStrings.roleClient,
+                    description: AppStrings.roleClientDescription,
                     icon: Icons.person_rounded,
                     onTap: () => Navigator.of(
                       context,
-                    ).pushNamed(AppRoutes.signup, arguments: UserRole.client),
+                    ).pushNamed(AppRoutes.signup, arguments: null),
                   ),
                   const SizedBox(height: 14),
                   _RoleCard(
-                    role: UserRole.chauffeurVoiture,
+                    label: AppStrings.roleDriverCar,
+                    description: AppStrings.roleDriverCarDescription,
                     icon: Icons.directions_car_filled_rounded,
                     onTap: () => Navigator.of(
                       context,
-                    ).pushNamed(AppRoutes.signup, arguments: UserRole.chauffeurVoiture),
+                    ).pushNamed(AppRoutes.signup, arguments: VehicleType.car),
                   ),
                   const SizedBox(height: 14),
                   _RoleCard(
-                    role: UserRole.chauffeurMoto,
+                    label: AppStrings.roleDriverMoto,
+                    description: AppStrings.roleDriverMotoDescription,
                     icon: Icons.two_wheeler_rounded,
                     onTap: () => Navigator.of(
                       context,
-                    ).pushNamed(AppRoutes.signup, arguments: UserRole.chauffeurMoto),
+                    ).pushNamed(AppRoutes.signup, arguments: VehicleType.moto),
                   ),
                   const SizedBox(height: 22),
                   Center(
@@ -118,9 +121,15 @@ class OnboardingScreen extends StatelessWidget {
 }
 
 class _RoleCard extends StatelessWidget {
-  const _RoleCard({required this.role, required this.icon, required this.onTap});
+  const _RoleCard({
+    required this.label,
+    required this.description,
+    required this.icon,
+    required this.onTap,
+  });
 
-  final UserRole role;
+  final String label;
+  final String description;
   final IconData icon;
   final VoidCallback onTap;
 
@@ -149,7 +158,7 @@ class _RoleCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      role.label,
+                      label,
                       style: const TextStyle(
                         color: AppColors.lightTextPrimary,
                         fontWeight: FontWeight.w700,
@@ -158,7 +167,7 @@ class _RoleCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      role.description,
+                      description,
                       style: const TextStyle(color: AppColors.lightTextSecondary, fontSize: 13.5),
                     ),
                   ],
