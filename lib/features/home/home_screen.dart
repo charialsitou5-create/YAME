@@ -2,8 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../models/app_mode.dart';
 import '../../models/app_user.dart';
-import '../../models/user_role.dart';
 import '../driver/driver_home_screen.dart';
 import '../driver/driver_intro_screen.dart';
 import '../driver/driver_status_screen.dart';
@@ -29,11 +29,19 @@ class HomeScreen extends StatelessWidget {
         if (data == null) return const SizedBox.shrink();
 
         final user = AppUser.fromMap(uid, data);
-        if (user.role == UserRole.client) {
+        if (user.activeMode == AppMode.client) {
+          return ClientShell(name: user.name);
+        }
+
+        final vehicleType = user.driverVehicleType;
+        if (vehicleType == null) {
+          // Filet de sécurité : activeMode ne devrait jamais être `driver`
+          // sans qu'un véhicule ait été choisi (voir signup_screen.dart /
+          // ProfilScreen).
           return ClientShell(name: user.name);
         }
         if (!user.vehicleRegistered) {
-          return DriverIntroScreen(role: user.role);
+          return DriverIntroScreen(vehicleType: vehicleType);
         }
         return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
           stream: FirebaseFirestore.instance
@@ -50,7 +58,7 @@ class HomeScreen extends StatelessWidget {
             if (status != 'approved') {
               return const DriverStatusScreen(rejected: false);
             }
-            return DriverHomeScreen(role: user.role, driverName: user.name);
+            return DriverHomeScreen(vehicleType: vehicleType, driverName: user.name);
           },
         );
       },
