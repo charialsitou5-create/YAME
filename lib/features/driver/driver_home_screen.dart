@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import '../../core/constants/app_strings.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/ride_request.dart';
-import '../../models/user_role.dart';
 import '../../models/vehicle_type.dart';
 import '../../routes/app_routes.dart';
 import '../../services/driver_tracking_service.dart';
@@ -18,11 +17,11 @@ import 'recharge_screen.dart';
 class DriverHomeScreen extends StatefulWidget {
   const DriverHomeScreen({
     super.key,
-    required this.role,
+    required this.vehicleType,
     required this.driverName,
   });
 
-  final UserRole role;
+  final VehicleType vehicleType;
   final String driverName;
 
   @override
@@ -34,7 +33,23 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   String? _activeRideId;
   final DriverTrackingService _trackingService = DriverTrackingService();
 
-  VehicleType get _vehicleType => widget.role.vehicleType;
+  VehicleType get _vehicleType => widget.vehicleType;
+
+  @override
+  void initState() {
+    super.initState();
+    _recoverActiveRide();
+  }
+
+  Future<void> _recoverActiveRide() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+    final activeId = doc.data()?['driverActiveRideId'] as String?;
+    if (activeId != null && mounted) {
+      setState(() => _activeRideId = activeId);
+    }
+  }
 
   @override
   void dispose() {
@@ -70,6 +85,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         .doc(uid)
         .collection('location')
         .doc('current');
+    final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
 
     try {
       await FirebaseFirestore.instance.runTransaction((transaction) async {
@@ -90,6 +106,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
           {'activeClientUid': request.clientUid},
           SetOptions(merge: true),
         );
+        transaction.update(userRef, {'driverActiveRideId': request.id});
       });
       if (!mounted) return;
       setState(() => _activeRideId = request.id);
@@ -105,19 +122,27 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     final id = _activeRideId;
     if (id == null) return;
     final uid = FirebaseAuth.instance.currentUser?.uid;
-    await FirebaseFirestore.instance.collection('ride_requests').doc(id).update(
-      {'status': newStatus.firestoreValue},
-    );
+    final batch = FirebaseFirestore.instance.batch()
+      ..update(FirebaseFirestore.instance.collection('ride_requests').doc(id), {
+        'status': newStatus.firestoreValue,
+      });
     if (uid != null) {
       // Révoque l'accès du client à la position GPS live maintenant que
       // la course est terminée/annulée.
-      await FirebaseFirestore.instance
-          .collection('driver_profiles')
-          .doc(uid)
-          .collection('location')
-          .doc('current')
-          .set({'activeClientUid': FieldValue.delete()}, SetOptions(merge: true));
+      batch.set(
+        FirebaseFirestore.instance
+            .collection('driver_profiles')
+            .doc(uid)
+            .collection('location')
+            .doc('current'),
+        {'activeClientUid': FieldValue.delete()},
+        SetOptions(merge: true),
+      );
+      batch.update(FirebaseFirestore.instance.collection('users').doc(uid), {
+        'driverActiveRideId': null,
+      });
     }
+    await batch.commit();
     if (!mounted) return;
     setState(() => _activeRideId = null);
   }

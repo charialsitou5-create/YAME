@@ -9,15 +9,14 @@ import 'package:image_picker/image_picker.dart';
 import '../../core/constants/app_strings.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/driver_vehicle.dart';
-import '../../models/user_role.dart';
 import '../../models/vehicle_type.dart';
 
 /// Assistant d'inscription du véhicule en 3 étapes : informations,
 /// photos, documents — requis avant qu'un chauffeur reçoive des courses.
 class VehicleRegistrationWizard extends StatefulWidget {
-  const VehicleRegistrationWizard({super.key, required this.role});
+  const VehicleRegistrationWizard({super.key, required this.vehicleType});
 
-  final UserRole role;
+  final VehicleType vehicleType;
 
   @override
   State<VehicleRegistrationWizard> createState() =>
@@ -27,7 +26,7 @@ class VehicleRegistrationWizard extends StatefulWidget {
 class _VehicleRegistrationWizardState extends State<VehicleRegistrationWizard> {
   static final _picker = ImagePicker();
 
-  late final bool _isCar = widget.role.vehicleType == VehicleType.car;
+  late final bool _isCar = widget.vehicleType == VehicleType.car;
   late final List<String> _photoLabels = _isCar
       ? const [
           AppStrings.wizardPhotoFront,
@@ -129,7 +128,7 @@ class _VehicleRegistrationWizardState extends State<VehicleRegistrationWizard> {
           : await _uploadDoc(uid, 'license.jpg', _licensePhoto!);
 
       final vehicle = DriverVehicle(
-        vehicleType: widget.role.vehicleType,
+        vehicleType: widget.vehicleType,
         model: _modelController.text.trim(),
         year: int.parse(_yearController.text.trim()),
         plate: _plateController.text.trim(),

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants/app_strings.dart';
 import '../../core/theme/app_colors.dart';
-import '../../models/user_role.dart';
+import '../../models/vehicle_type.dart';
 import '../../routes/app_routes.dart';
 import 'vehicle_registration_wizard.dart';
 
@@ -11,9 +11,9 @@ import 'vehicle_registration_wizard.dart';
 /// terminé l'enregistrement de son véhicule : rappelle comment fonctionne
 /// la rémunération avant de lancer l'assistant en 3 étapes.
 class DriverIntroScreen extends StatelessWidget {
-  const DriverIntroScreen({super.key, required this.role});
+  const DriverIntroScreen({super.key, required this.vehicleType});
 
-  final UserRole role;
+  final VehicleType vehicleType;
 
   Future<void> _logout(BuildContext context) async {
     await FirebaseAuth.instance.signOut();
@@ -50,7 +50,9 @@ class DriverIntroScreen extends StatelessWidget {
                       children: [
                         const TextSpan(text: '${AppStrings.driverIntroPrefix}\n'),
                         TextSpan(
-                          text: role.label,
+                          text: vehicleType == VehicleType.car
+                              ? AppStrings.roleDriverCar
+                              : AppStrings.roleDriverMoto,
                           style: const TextStyle(color: AppColors.accentBright),
                         ),
                       ],
@@ -88,7 +90,9 @@ class DriverIntroScreen extends StatelessWidget {
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => VehicleRegistrationWizard(role: role)),
+                        MaterialPageRoute(
+                          builder: (_) => VehicleRegistrationWizard(vehicleType: vehicleType),
+                        ),
                       ),
                       child: const Text(AppStrings.driverIntroCta),
                     ),
