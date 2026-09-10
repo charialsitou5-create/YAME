@@ -217,6 +217,17 @@ class AppStrings {
       'Notification automatique quand votre solde ≤ 1 000 FCFA.';
   static const driverIntroCta = 'Suivant';
 
+  // Profil — devenir chauffeur / bascule de mode
+  static const profileBecomeDriverTitle = 'Devenez chauffeur';
+  static const profileBecomeDriverSubtitle =
+      'Gagnez de l\'argent avec Yame en plus de vos trajets.';
+  static const profileBecomeDriverCta = 'Devenir chauffeur';
+  static const profileBecomeDriverChooseVehicle = 'Choisissez votre véhicule';
+  static const profileSwitchToDriver = 'Passer en mode chauffeur';
+  static const profileSwitchToClient = 'Passer en mode client';
+  static const profileSwitchBlocked =
+      'Terminez votre course en cours avant de changer de mode.';
+
   // Inscription chauffeur — assistant véhicule (3 étapes)
   static const wizardStepVehicleInfo = 'Informations\ndu véhicule';
   static const wizardStepMotoInfo = 'Informations\nde la moto';

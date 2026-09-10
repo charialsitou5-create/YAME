@@ -4,8 +4,11 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants/app_strings.dart';
 import '../../core/theme/app_colors.dart';
+import '../../models/app_mode.dart';
 import '../../models/app_user.dart';
+import '../../models/vehicle_type.dart';
 import '../../routes/app_routes.dart';
+import '../driver/vehicle_registration_wizard.dart';
 import '../support/report_issue_screen.dart';
 
 /// Onglet Profil : identité, activités, réglages du compte.
@@ -73,6 +76,10 @@ class ProfilScreen extends StatelessWidget {
                 email: user?.email,
               ),
               const SizedBox(height: 24),
+              if (uid != null && user != null) ...[
+                _DriverSection(uid: uid, user: user),
+                const SizedBox(height: 16),
+              ],
               Text(
                 AppStrings.profileActivities,
                 style: Theme.of(context).textTheme.titleLarge,
@@ -475,6 +482,167 @@ class _RowDivider extends StatelessWidget {
       indent: 16,
       endIndent: 16,
       color: AppColors.border,
+    );
+  }
+}
+
+class _DriverSection extends StatelessWidget {
+  const _DriverSection({required this.uid, required this.user});
+
+  final String uid;
+  final AppUser user;
+
+  Future<void> _pickVehicleType(BuildContext context) async {
+    final type = await showModalBottomSheet<VehicleType>(
+      context: context,
+      backgroundColor: AppColors.surfaceElevated,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => const _VehicleTypeSheet(),
+    );
+    if (type == null || !context.mounted) return;
+
+    await FirebaseFirestore.instance.collection('users').doc(uid).update({
+      'driverVehicleType': type.name,
+    });
+    if (!context.mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => VehicleRegistrationWizard(vehicleType: type)),
+    );
+  }
+
+  Future<void> _switchMode(AppMode newMode) {
+    return FirebaseFirestore.instance.collection('users').doc(uid).update({
+      'activeMode': newMode.firestoreValue,
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final vehicleType = user.driverVehicleType;
+
+    if (vehicleType == null) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              AppStrings.profileBecomeDriverTitle,
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              AppStrings.profileBecomeDriverSubtitle,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 14),
+            ElevatedButton(
+              onPressed: () => _pickVehicleType(context),
+              child: const Text(AppStrings.profileBecomeDriverCta),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance.collection('driver_profiles').doc(uid).snapshots(),
+      builder: (context, snapshot) {
+        final status = snapshot.data?.data()?['status'] as String? ?? 'pending_verification';
+
+        if (status != 'approved') {
+          return Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Text(
+              status == 'rejected'
+                  ? AppStrings.driverRejectedTitle
+                  : AppStrings.driverPendingTitle,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          );
+        }
+
+        final blocked = user.activeMode == AppMode.client
+            ? user.clientActiveRideId != null
+            : user.driverActiveRideId != null;
+        final targetMode = user.activeMode == AppMode.client ? AppMode.driver : AppMode.client;
+        final label = targetMode == AppMode.driver
+            ? AppStrings.profileSwitchToDriver
+            : AppStrings.profileSwitchToClient;
+
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ElevatedButton(
+                onPressed: blocked ? null : () => _switchMode(targetMode),
+                child: Text(label),
+              ),
+              if (blocked) ...[
+                const SizedBox(height: 8),
+                Text(
+                  AppStrings.profileSwitchBlocked,
+                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 12.5),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _VehicleTypeSheet extends StatelessWidget {
+  const _VehicleTypeSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              AppStrings.profileBecomeDriverChooseVehicle,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.directions_car_filled_rounded, color: AppColors.accent),
+              title: const Text(AppStrings.roleDriverCar),
+              onTap: () => Navigator.of(context).pop(VehicleType.car),
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.two_wheeler_rounded, color: AppColors.accent),
+              title: const Text(AppStrings.roleDriverMoto),
+              onTap: () => Navigator.of(context).pop(VehicleType.moto),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
