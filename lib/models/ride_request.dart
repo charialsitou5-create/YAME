@@ -7,7 +7,8 @@ enum RideStatus {
   searching,
   accepted,
   completed,
-  cancelled;
+  cancelled,
+  noDriverFound;
 
   String get firestoreValue => name;
 
@@ -37,6 +38,8 @@ class RideRequest {
     this.recipientPhone,
     this.recipientInstructions,
     this.contactRequesterInstead = false,
+    this.offeredUid,
+    this.offerExpiresAt,
   });
 
   final String? id;
@@ -50,6 +53,13 @@ class RideRequest {
   final RideStatus status;
   final String? driverUid;
   final String? driverName;
+
+  /// Chauffeur actuellement sollicité par le dispatch serveur (yame-admin),
+  /// `null` hors offre active — voir `docs/superpowers/specs/2026-09-12-ride-dispatch-design.md`.
+  final String? offeredUid;
+
+  /// Fin du délai de réponse pour `offeredUid`.
+  final DateTime? offerExpiresAt;
 
   /// Renseignés quand la course est commandée pour quelqu'un d'autre que
   /// [clientUid] (voir `RecipientDetailsScreen`). `null` sinon.
@@ -102,6 +112,10 @@ class RideRequest {
       status: RideStatus.fromFirestoreValue(data['status'] as String? ?? 'searching'),
       driverUid: data['driverUid'] as String?,
       driverName: data['driverName'] as String?,
+      offeredUid: data['offeredUid'] as String?,
+      offerExpiresAt: data['offerExpiresAt'] != null
+          ? DateTime.tryParse(data['offerExpiresAt'] as String)
+          : null,
       recipientName: data['recipientName'] as String?,
       recipientPhone: data['recipientPhone'] as String?,
       recipientInstructions: data['recipientInstructions'] as String?,

@@ -106,15 +106,20 @@ service cloud.firestore {
     // garantir que chaque résultat respecte l'une de ces trois conditions —
     // une requête "toute la collection" est donc refusée.
     match /ride_requests/{requestId} {
+      // Un chauffeur ne lit plus jamais "toutes les courses en recherche" —
+      // seulement celle qui lui est explicitement offerte par le dispatch
+      // serveur (yame-admin, Admin SDK, qui contourne ces règles). Voir
+      // docs/superpowers/specs/2026-09-12-ride-dispatch-design.md.
       allow read: if request.auth != null && (
-        resource.data.status == 'searching' ||
         resource.data.clientUid == request.auth.uid ||
-        resource.data.driverUid == request.auth.uid
+        resource.data.driverUid == request.auth.uid ||
+        resource.data.get('offeredUid', null) == request.auth.uid
       );
 
       allow create: if request.auth != null
         && request.resource.data.clientUid == request.auth.uid
-        && request.resource.data.status == 'searching';
+        && request.resource.data.status == 'searching'
+        && request.resource.data.get('offeredUid', null) == null;
 
       allow update: if request.auth != null && (
         // le client annule sa propre demande tant qu'elle cherche un chauffeur
@@ -122,12 +127,6 @@ service cloud.firestore {
           && resource.data.status == 'searching'
           && request.resource.data.status == 'cancelled'
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']))
-        ||
-        // un chauffeur accepte une demande encore ouverte
-        (resource.data.status == 'searching'
-          && request.resource.data.status == 'accepted'
-          && request.resource.data.driverUid == request.auth.uid
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'driverUid', 'driverName']))
         ||
         // le chauffeur assigné termine ou annule la course acceptée
         (resource.data.status == 'accepted'
