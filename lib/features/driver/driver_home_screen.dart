@@ -46,8 +46,20 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     if (uid == null) return;
     final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
     final activeId = doc.data()?['driverActiveRideId'] as String?;
-    if (activeId != null && mounted) {
+    final wasOnline = doc.data()?['driverOnline'] as bool? ?? false;
+    if (!mounted) return;
+    if (activeId != null) {
       setState(() => _activeRideId = activeId);
+    }
+    // Le statut en ligne/hors ligne n'était jusqu'ici qu'un état local
+    // (`_online`), perdu à chaque redémarrage de l'app (l'OS tuant le
+    // process en tâche de fond, par ex.) — le chauffeur se retrouvait
+    // hors ligne sans le savoir. On le persiste donc (voir _toggleOnline)
+    // et on relance le suivi GPS ici pour rester cohérent avec ce qui est
+    // affiché à l'écran.
+    if (wasOnline) {
+      setState(() => _online = true);
+      _trackingService.startTracking();
     }
   }
 
@@ -59,6 +71,13 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
 
   void _toggleOnline(bool value) {
     setState(() => _online = value);
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .update({'driverOnline': value});
+    }
     if (value) {
       _trackingService.startTracking();
     } else {
@@ -68,6 +87,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
 
 
   Future<void> _logout() async {
+    if (_online) _toggleOnline(false);
     await FirebaseAuth.instance.signOut();
     if (!mounted) return;
     Navigator.of(context)
@@ -214,7 +234,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
 
                   if (_online && !hasBalance && _activeRideId == null) {
                     WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted) setState(() => _online = false);
+                      if (mounted) _toggleOnline(false);
                     });
                   }
 
