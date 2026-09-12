@@ -97,14 +97,10 @@ service cloud.firestore {
       }
     }
 
-    // Demandes de course : un chauffeur doit pouvoir parcourir les demandes
-    // encore ouvertes ('searching') pour les accepter ; en dehors de ça,
-    // un client/chauffeur ne voit que ses propres courses, une fois qu'il y
-    // est partie prenante (clientUid ou driverUid). Ce n'est pas un filtre
-    // appliqué après coup : Firestore rejette toute requête qui ne
-    // contraint pas déjà `status`/`clientUid`/`driverUid` de façon à
-    // garantir que chaque résultat respecte l'une de ces trois conditions —
-    // une requête "toute la collection" est donc refusée.
+    // Demandes de course : un client/chauffeur ne voit que ses propres
+    // courses, une fois qu'il y est partie prenante (clientUid ou
+    // driverUid) — plus de parcours de la collection par statut, voir le
+    // commentaire détaillé sur `allow read` ci-dessous.
     match /ride_requests/{requestId} {
       // Un chauffeur ne lit plus jamais "toutes les courses en recherche" —
       // seulement celle qui lui est explicitement offerte par le dispatch
