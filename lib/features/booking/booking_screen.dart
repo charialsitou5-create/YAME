@@ -228,7 +228,8 @@ class _BookingScreenState extends State<BookingScreen> {
 
       try {
         await DispatchService.start(rideId: requestRef.id);
-      } catch (_) {
+      } catch (e) {
+        debugPrint('Dispatch failed: $e');
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text(AppStrings.bookingRequestError)),

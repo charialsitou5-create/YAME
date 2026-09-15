@@ -172,6 +172,8 @@ class AppStrings {
   static const driverCancelRide = 'Annuler la course';
   static const driverRequestTaken =
       'Cette course vient d\'être prise par un autre chauffeur.';
+  static const driverActiveRideUnavailable = 'Cette course n\'est plus disponible.';
+  static const driverActiveRideUnavailableCta = 'Retour aux courses';
   static const driverContactPassenger = 'Contacter le passager';
   static const driverBalanceRequired =
       'Rechargez votre compte pour passer en ligne et recevoir des courses.';

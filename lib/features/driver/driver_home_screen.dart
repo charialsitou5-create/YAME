@@ -102,9 +102,51 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     try {
       await DispatchResponseService.respond(rideId: id, accept: accept);
       if (!mounted || !accept) return;
-      setState(() => _activeRideId = id);
+      await _waitForAssignmentConfirmation(id);
     } catch (_) {
       if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.driverRequestTaken)),
+      );
+    }
+  }
+
+  /// Un 200 de `/api/rides/respond` signifie seulement que le hook serveur
+  /// a été relancé — le workflow peut encore rejeter l'assignation ensuite
+  /// (solde insuffisant, course déjà réassignée...). On attend donc la
+  /// confirmation réelle (status == accepted && driverUid == ce chauffeur)
+  /// sur ride_requests/{id} avant de basculer sur l'écran de course active,
+  /// avec un délai bercé un peu au-delà de la fenêtre d'offre serveur de
+  /// 12s pour couvrir la latence réseau.
+  Future<void> _waitForAssignmentConfirmation(String id) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final completer = Completer<bool>();
+    StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? subscription;
+    Timer? timeoutTimer;
+
+    subscription = FirebaseFirestore.instance
+        .collection('ride_requests')
+        .doc(id)
+        .snapshots()
+        .listen((snapshot) {
+          final data = snapshot.data();
+          if (data != null && data['status'] == 'accepted' && data['driverUid'] == uid) {
+            if (!completer.isCompleted) completer.complete(true);
+          }
+        });
+
+    timeoutTimer = Timer(const Duration(seconds: 15), () {
+      if (!completer.isCompleted) completer.complete(false);
+    });
+
+    final confirmed = await completer.future;
+    await subscription.cancel();
+    timeoutTimer.cancel();
+
+    if (!mounted) return;
+    if (confirmed) {
+      setState(() => _activeRideId = id);
+    } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text(AppStrings.driverRequestTaken)),
       );
@@ -272,6 +314,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                             ? _ActiveRide(
                                 rideId: _activeRideId!,
                                 onEnd: _endRide,
+                                onUnavailable: () => setState(() => _activeRideId = null),
                               )
                             : !hasBalance
                             ? const _BalanceRequiredNotice()
@@ -526,10 +569,15 @@ class _OfferCountdownState extends State<_OfferCountdown> {
 }
 
 class _ActiveRide extends StatelessWidget {
-  const _ActiveRide({required this.rideId, required this.onEnd});
+  const _ActiveRide({
+    required this.rideId,
+    required this.onEnd,
+    required this.onUnavailable,
+  });
 
   final String rideId;
   final ValueChanged<RideStatus> onEnd;
+  final VoidCallback onUnavailable;
 
   @override
   Widget build(BuildContext context) {
@@ -540,7 +588,36 @@ class _ActiveRide extends StatelessWidget {
           .snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData || !snapshot.data!.exists) {
-          return const SizedBox.shrink();
+          // Le chauffeur a perdu l'accès au document (course annulée/
+          // réassignée entre-temps) : un écran blanc serait bloquant, on
+          // propose donc de revenir à la carte d'offre plutôt que de
+          // laisser le chauffeur coincé.
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.error_outline_rounded,
+                    size: 40,
+                    color: AppColors.textSecondary,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    AppStrings.driverActiveRideUnavailable,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: onUnavailable,
+                    child: const Text(AppStrings.driverActiveRideUnavailableCta),
+                  ),
+                ],
+              ),
+            ),
+          );
         }
         final request = RideRequest.fromDoc(snapshot.data!);
         return Padding(
