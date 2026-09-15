@@ -252,6 +252,16 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                     .doc('current')
                     .snapshots(),
                 builder: (context, snapshot) {
+                  // Avant la première valeur du stream, `snapshot.data` est
+                  // `null` et `balance` retomberait à 0 — indiscernable d'un
+                  // solde réellement épuisé, ce qui déclenchait le garde-fou
+                  // ci-dessous à tort dès l'ouverture de l'écran (bug trouvé
+                  // pendant les tests manuels du dispatch, 2026-09-15).
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(
+                      child: CircularProgressIndicator(color: AppColors.accent),
+                    );
+                  }
                   final balance =
                       snapshot.data?.data()?['balance'] as int? ?? 0;
                   final hasBalance = balance > 0;
