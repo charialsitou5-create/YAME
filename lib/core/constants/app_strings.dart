@@ -104,6 +104,9 @@ class AppStrings {
   static const bookingSearching = 'Recherche d\'un chauffeur…';
   static const bookingCancel = 'Annuler';
   static const bookingCancelled = 'Course annulée.';
+  static const bookingNoDriverFoundTitle = 'Aucun chauffeur disponible';
+  static const bookingNoDriverFoundBody =
+      'Personne n\'a pu prendre votre course pour le moment. Réessayez dans quelques instants.';
   static const bookingNoDriverFound = 'Aucun chauffeur disponible pour le moment.';
   static const bookingAccepted = 'Chauffeur trouvé';
   static const bookingDriverOnTheWay = 'arrive pour vous prendre en charge.';

@@ -440,7 +440,8 @@ class _BookingScreenState extends State<BookingScreen> {
                       if (ride != null &&
                           !_clientActiveRideCleared &&
                           (ride.status == RideStatus.completed ||
-                              ride.status == RideStatus.cancelled)) {
+                              ride.status == RideStatus.cancelled ||
+                              ride.status == RideStatus.noDriverFound)) {
                         _clientActiveRideCleared = true;
                         final uid = FirebaseAuth.instance.currentUser?.uid;
                         if (uid != null) {
@@ -795,7 +796,15 @@ class _RideStatusPanel extends StatelessWidget {
               ),
             ],
           RideStatus.noDriverFound => [
-              Text(AppStrings.bookingNoDriverFound, style: Theme.of(context).textTheme.titleLarge),
+              Text(
+                AppStrings.bookingNoDriverFoundTitle,
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                AppStrings.bookingNoDriverFoundBody,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: onNewBooking,
