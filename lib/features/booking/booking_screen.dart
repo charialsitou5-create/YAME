@@ -13,6 +13,7 @@ import '../../core/theme/app_colors.dart';
 import '../../models/ride_request.dart';
 import '../../models/vehicle_type.dart';
 import '../../routes/app_routes.dart';
+import '../../services/dispatch_service.dart';
 import 'payment_screen.dart';
 import 'rating_screen.dart';
 import 'recipient_details_screen.dart';
@@ -224,6 +225,15 @@ class _BookingScreenState extends State<BookingScreen> {
         _activeRequestId = requestRef.id;
         _clientActiveRideCleared = false;
       });
+
+      try {
+        await DispatchService.start(rideId: requestRef.id);
+      } catch (_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text(AppStrings.bookingRequestError)),
+        );
+      }
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
