@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -7,6 +9,7 @@ import '../../core/theme/app_colors.dart';
 import '../../models/ride_request.dart';
 import '../../models/vehicle_type.dart';
 import '../../routes/app_routes.dart';
+import '../../services/dispatch_response_service.dart';
 import '../../services/driver_tracking_service.dart';
 import '../support/report_issue_screen.dart';
 import 'contact_passenger_screen.dart';
@@ -33,8 +36,6 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   bool _online = false;
   String? _activeRideId;
   final DriverTrackingService _trackingService = DriverTrackingService();
-
-  VehicleType get _vehicleType => widget.vehicleType;
 
   @override
   void initState() {
@@ -95,42 +96,13 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         .pushNamedAndRemoveUntil(AppRoutes.onboarding, (route) => false);
   }
 
-  Future<void> _accept(RideRequest request) async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
-    final docRef = FirebaseFirestore.instance
-        .collection('ride_requests')
-        .doc(request.id);
-    final locationRef = FirebaseFirestore.instance
-        .collection('driver_profiles')
-        .doc(uid)
-        .collection('location')
-        .doc('current');
-    final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
-
+  Future<void> _respondToOffer(RideRequest request, bool accept) async {
+    final id = request.id;
+    if (id == null) return;
     try {
-      await FirebaseFirestore.instance.runTransaction((transaction) async {
-        final snapshot = await transaction.get(docRef);
-        final currentStatus = snapshot.data()?['status'] as String?;
-        if (currentStatus != RideStatus.searching.firestoreValue) {
-          throw StateError('taken');
-        }
-        transaction.update(docRef, {
-          'status': RideStatus.accepted.firestoreValue,
-          'driverUid': uid,
-          'driverName': widget.driverName,
-        });
-        // Autorise le client de cette course à lire la position GPS live
-        // du chauffeur (firestore.rules : driver_profiles/location).
-        transaction.set(
-          locationRef,
-          {'activeClientUid': request.clientUid},
-          SetOptions(merge: true),
-        );
-        transaction.update(userRef, {'driverActiveRideId': request.id});
-      });
-      if (!mounted) return;
-      setState(() => _activeRideId = request.id);
+      await DispatchResponseService.respond(rideId: id, accept: accept);
+      if (!mounted || !accept) return;
+      setState(() => _activeRideId = id);
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -305,9 +277,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                             ? const _BalanceRequiredNotice()
                             : !_online
                             ? const _OfflineNotice()
-                            : _PendingRequestsList(
-                                vehicleType: _vehicleType,
-                                onAccept: _accept,
+                            : _RideOfferCard(
+                                onRespond: _respondToOffer,
                               ),
                       ),
                     ],
@@ -412,23 +383,23 @@ class _BalanceRequiredNotice extends StatelessWidget {
   }
 }
 
-class _PendingRequestsList extends StatelessWidget {
-  const _PendingRequestsList({
-    required this.vehicleType,
-    required this.onAccept,
-  });
+class _RideOfferCard extends StatelessWidget {
+  const _RideOfferCard({required this.onRespond});
 
-  final VehicleType vehicleType;
-  final ValueChanged<RideRequest> onAccept;
+  final void Function(RideRequest request, bool accept) onRespond;
 
   @override
   Widget build(BuildContext context) {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance
-          .collection('ride_requests')
-          .where('status', isEqualTo: RideStatus.searching.firestoreValue)
-          .where('vehicleType', isEqualTo: vehicleType.name)
-          .snapshots(),
+      stream: uid == null
+          ? null
+          : FirebaseFirestore.instance
+              .collection('ride_requests')
+              .where('offeredUid', isEqualTo: uid)
+              .where('status', isEqualTo: RideStatus.searching.firestoreValue)
+              .limit(1)
+              .snapshots(),
       builder: (context, snapshot) {
         final docs = snapshot.data?.docs ?? [];
         if (docs.isEmpty) {
@@ -455,56 +426,101 @@ class _PendingRequestsList extends StatelessWidget {
           );
         }
 
-        return ListView.separated(
+        final request = RideRequest.fromDoc(docs.first);
+        return Padding(
           padding: const EdgeInsets.all(20),
-          itemCount: docs.length,
-          separatorBuilder: (_, _) => const SizedBox(height: 12),
-          itemBuilder: (context, index) {
-            final request = RideRequest.fromDoc(docs[index]);
-            return Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceElevated,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: AppColors.border),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    request.clientName.isNotEmpty
-                        ? request.clientName
-                        : AppStrings.driverClient,
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
+          child: Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceElevated,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  request.clientName.isNotEmpty ? request.clientName : AppStrings.driverClient,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 12),
+                _AddressRow(
+                  icon: Icons.circle,
+                  iconColor: AppColors.success,
+                  label: AppStrings.driverPickup,
+                  address: request.pickupAddress,
+                ),
+                const SizedBox(height: 8),
+                _AddressRow(
+                  icon: Icons.location_on,
+                  iconColor: AppColors.accent,
+                  label: AppStrings.driverDestination,
+                  address: request.destinationAddress,
+                ),
+                if (request.offerExpiresAt != null) ...[
                   const SizedBox(height: 12),
-                  _AddressRow(
-                    icon: Icons.circle,
-                    iconColor: AppColors.success,
-                    label: AppStrings.driverPickup,
-                    address: request.pickupAddress,
-                  ),
-                  const SizedBox(height: 8),
-                  _AddressRow(
-                    icon: Icons.location_on,
-                    iconColor: AppColors.accent,
-                    label: AppStrings.driverDestination,
-                    address: request.destinationAddress,
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () => onAccept(request),
-                      child: const Text(AppStrings.driverAccept),
-                    ),
-                  ),
+                  _OfferCountdown(expiresAt: request.offerExpiresAt!),
                 ],
-              ),
-            );
-          },
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => onRespond(request, false),
+                        child: const Text(AppStrings.driverDecline),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => onRespond(request, true),
+                        child: const Text(AppStrings.driverAccept),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
         );
       },
+    );
+  }
+}
+
+class _OfferCountdown extends StatefulWidget {
+  const _OfferCountdown({required this.expiresAt});
+
+  final DateTime expiresAt;
+
+  @override
+  State<_OfferCountdown> createState() => _OfferCountdownState();
+}
+
+class _OfferCountdownState extends State<_OfferCountdown> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final remaining = widget.expiresAt.difference(DateTime.now()).inSeconds;
+    final seconds = remaining > 0 ? remaining : 0;
+    return Text(
+      '${AppStrings.driverOfferExpiresIn} ${seconds}s',
+      style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.accentBright),
     );
   }
 }

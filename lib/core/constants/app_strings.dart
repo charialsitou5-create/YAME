@@ -162,6 +162,8 @@ class AppStrings {
   static const driverGoOnline = 'Passez en ligne pour recevoir des courses.';
   static const driverNoRequests = 'Aucune demande de course pour l\'instant.';
   static const driverAccept = 'Accepter';
+  static const driverDecline = 'Refuser';
+  static const driverOfferExpiresIn = 'Répondez avant';
   static const driverAcceptedRide = 'Course en cours';
   static const driverClient = 'Client';
   static const driverPickup = 'Départ';
