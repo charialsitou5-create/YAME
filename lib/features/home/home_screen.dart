@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/app_mode.dart';
 import '../../models/app_user.dart';
+import '../../services/notification_service.dart';
 import '../driver/driver_home_screen.dart';
 import '../driver/driver_intro_screen.dart';
 import '../driver/driver_status_screen.dart';
@@ -11,8 +12,25 @@ import 'client_shell.dart';
 
 /// Aiguille vers l'écran de réservation (client) ou l'écran chauffeur,
 /// selon le rôle du profil chargé depuis Firestore.
-class HomeScreen extends StatelessWidget {
+///
+/// Point de passage unique de toute session connectée (démarrage à froid
+/// via AuthGate, ou connexion/inscription fraîche — les deux amènent ici,
+/// jamais par AuthGate une deuxième fois) : c'est donc l'endroit choisi
+/// pour enregistrer le token FCM une seule fois par session, plutôt que de
+/// dupliquer l'appel dans chaque écran de connexion/inscription.
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    NotificationService().initializeAndRegisterToken();
+  }
 
   @override
   Widget build(BuildContext context) {

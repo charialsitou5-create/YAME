@@ -5,6 +5,11 @@ import 'core/constants/app_strings.dart';
 import 'core/theme/app_theme.dart';
 import 'routes/app_routes.dart';
 
+/// Permet d'afficher un SnackBar depuis n'importe où (ex : le handler
+/// FCM premier-plan dans `NotificationService`, qui n'a pas de
+/// `BuildContext` puisqu'il s'exécute hors d'un `build()`).
+final scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
+
 class YameApp extends StatelessWidget {
   const YameApp({super.key});
 
@@ -12,6 +17,7 @@ class YameApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: AppStrings.appName,
+      scaffoldMessengerKey: scaffoldMessengerKey,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,
       darkTheme: AppTheme.dark,
