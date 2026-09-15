@@ -82,6 +82,7 @@ class _BookingScreenState extends State<BookingScreen> {
       }
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
+        if (!mounted) return;
         setState(() {
           _locationError = AppStrings.bookingLocationDenied;
           _locating = false;
@@ -93,7 +94,7 @@ class _BookingScreenState extends State<BookingScreen> {
       final latLng = LatLng(position.latitude, position.longitude);
       await _setPoint(_PickMode.pickup, latLng, animateCamera: true);
     } catch (_) {
-      setState(() => _locationError = AppStrings.bookingLocationDenied);
+      if (mounted) setState(() => _locationError = AppStrings.bookingLocationDenied);
     } finally {
       if (mounted) setState(() => _locating = false);
     }
@@ -159,6 +160,29 @@ class _BookingScreenState extends State<BookingScreen> {
   void _clearRecipient() => setState(() => _recipient = null);
 
   Future<void> _logout() async {
+    // Action irréversible et destructrice (perd la sélection départ/
+    // destination en cours) déclenchée par une icône dans le coin où
+    // l'utilisateur s'attend d'ordinaire à un bouton retour — une
+    // confirmation explicite évite une déconnexion accidentelle.
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text(AppStrings.logoutConfirmTitle),
+        content: const Text(AppStrings.logoutConfirmBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text(AppStrings.bookingCancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text(AppStrings.logout, style: TextStyle(color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
     await FirebaseAuth.instance.signOut();
     if (!mounted) return;
     Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.onboarding, (route) => false);
@@ -764,6 +788,14 @@ class _RideStatusPanel extends StatelessWidget {
             ],
           RideStatus.cancelled => [
               Text(AppStrings.bookingCancelled, style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: onNewBooking,
+                child: const Text(AppStrings.bookingNewRequest),
+              ),
+            ],
+          RideStatus.noDriverFound => [
+              Text(AppStrings.bookingNoDriverFound, style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: onNewBooking,

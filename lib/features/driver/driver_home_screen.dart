@@ -10,6 +10,7 @@ import '../../routes/app_routes.dart';
 import '../../services/driver_tracking_service.dart';
 import '../support/report_issue_screen.dart';
 import 'contact_passenger_screen.dart';
+import 'driver_dashboard_screen.dart';
 import 'recharge_screen.dart';
 
 /// Écran chauffeur : bascule en ligne/hors ligne, liste des demandes de
@@ -201,6 +202,15 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                     ),
                     icon: const Icon(Icons.account_balance_wallet_outlined),
                     tooltip: AppStrings.driverWallet,
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => DriverDashboardScreen(driverName: widget.driverName),
+                      ),
+                    ),
+                    icon: const Icon(Icons.dashboard_outlined),
+                    tooltip: AppStrings.driverDashboardTooltip,
                   ),
                   IconButton(
                     onPressed: () => Navigator.of(context).push(

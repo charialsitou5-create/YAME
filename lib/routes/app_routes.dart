@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../features/auth/auth_gate.dart';
+import '../features/auth/complete_profile_screen.dart';
 import '../features/auth/login_screen.dart';
 import '../features/auth/signup_screen.dart';
 import '../features/home/home_screen.dart';
@@ -14,6 +15,7 @@ class AppRoutes {
   static const signup = '/signup';
   static const login = '/login';
   static const home = '/home';
+  static const completeProfile = '/complete-profile';
 
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -24,6 +26,8 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => SignupScreen(vehicleType: vehicleType));
       case login:
         return MaterialPageRoute(builder: (_) => const LoginScreen());
+      case completeProfile:
+        return MaterialPageRoute(builder: (_) => const CompleteProfileScreen());
       case home:
         return MaterialPageRoute(builder: (_) => const HomeScreen());
       default:

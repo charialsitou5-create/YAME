@@ -30,6 +30,13 @@ class AppStrings {
   static const continueWithGoogle = 'Continuer avec Google';
   static const continueWithFacebook = 'Continuer avec Facebook';
   static const socialAuthComingSoon = 'Bientôt disponible.';
+  static const socialAuthError = 'Connexion impossible, réessayez.';
+
+  // Complétion du profil (après connexion Google/Facebook)
+  static const completeProfileTitle = 'Encore une étape';
+  static const completeProfileSubtitle =
+      'Ajoutez votre numéro de téléphone pour que chauffeurs et passagers puissent vous joindre.';
+  static const completeProfileCta = 'Continuer';
 
   // Connexion
   static const loginHeadline = 'Content de vous revoir';
@@ -57,11 +64,13 @@ class AppStrings {
   static const homeComingSoon =
       'Les courses à accepter arriveront bientôt ici.';
   static const logout = 'Se déconnecter';
+  static const logoutConfirmTitle = 'Se déconnecter ?';
+  static const logoutConfirmBody =
+      'Vous devrez vous reconnecter pour réserver une nouvelle course.';
 
   // Accueil (client)
   static const homeGreeting = 'Bonjour,';
   static const homeQuestion = 'Où allons-nous aujourd\'hui ?';
-  static const homePromoTitle = 'Paiements faciles et sécurisés avec Yame';
   static const homePromoBody =
       'Payez vos courses par mobile money, virement bancaire ou en espèces en toute sécurité.';
   static const homeServiceTitle = 'Choisissez votre type de service';
@@ -95,6 +104,7 @@ class AppStrings {
   static const bookingSearching = 'Recherche d\'un chauffeur…';
   static const bookingCancel = 'Annuler';
   static const bookingCancelled = 'Course annulée.';
+  static const bookingNoDriverFound = 'Aucun chauffeur disponible pour le moment.';
   static const bookingAccepted = 'Chauffeur trouvé';
   static const bookingDriverOnTheWay = 'arrive pour vous prendre en charge.';
   static const bookingSharePosition = 'Partager ma position';
@@ -167,6 +177,22 @@ class AppStrings {
   static const driverRejectedTitle = 'Inscription refusée';
   static const driverRejectedBody =
       'Votre inscription n\'a pas pu être validée. Contactez le support Yame pour en savoir plus.';
+
+  // Tableau de bord chauffeur (aperçu)
+  static const driverDashboardTooltip = 'Aperçu du tableau de bord';
+  static const driverDashboardTitle = 'Chauffeur';
+  static const driverDashboardRechargeAccount = 'Compte Recharge';
+  static const driverDashboardRechargeAccountSubtitle = '(Credits courses)';
+  static const driverDashboardRechargeNonWithdrawable = 'Non retirables';
+  static const driverDashboardRecharge = 'Recharger';
+  static const driverDashboardEarningsAccount = 'Compte Chauffeur';
+  static const driverDashboardEarningsAccountSubtitle = '(Argent à retirer)';
+  static const driverDashboardEarningsDescription =
+      'Ce compte est réservé au chauffeur. Il vous permet de recevoir directement le solde après paiement par le client suite à la course.';
+  static const driverDashboardSeeEarnings = 'Voir mes gains';
+  static const driverDashboardWaitingTitle = 'En attente des commandes';
+  static const driverDashboardWaitingSubtitle =
+      'Restez connecté, les clients vous trouvent en temps réel.';
 
   // Contact passager (chauffeur)
   static const contactPassengerTitle = 'Contact passager';
@@ -359,4 +385,18 @@ class AppStrings {
   static const rechargeBankTransfer = 'Virement bancaire';
   static const rechargeNotice =
       'Notification automatique quand votre solde ≤ 1 000 FCFA.';
+
+  // Recharge Mobile Money (MTN / Airtel)
+  static const rechargeChooseProvider = 'Choisissez votre opérateur';
+  static const rechargeProviderMtn = 'MTN Mobile Money';
+  static const rechargeProviderAirtel = 'Airtel Money';
+  static const rechargeAmountLabel = 'Montant (FCFA)';
+  static const rechargeAmountHint = 'Ex : 5000';
+  static const rechargeAmountRequired = 'Indiquez un montant valide.';
+  static const rechargePhoneLabel = 'Numéro Mobile Money';
+  static const rechargeConfirm = 'Envoyer la demande';
+  static const rechargeInitiated =
+      'Composez le code USSD reçu sur votre téléphone pour valider le paiement.';
+  static const rechargeInitiateError =
+      'Impossible de lancer la recharge, réessayez.';
 }

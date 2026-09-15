@@ -7,7 +7,9 @@ import '../../core/theme/app_colors.dart';
 import '../../models/app_mode.dart';
 import '../../models/app_user.dart';
 import '../../models/vehicle_type.dart';
+import '../../core/widgets/social_button.dart';
 import '../../routes/app_routes.dart';
+import '../../services/social_auth_service.dart';
 
 /// Inscription : nom, téléphone, e-mail, mot de passe.
 class SignupScreen extends StatefulWidget {
@@ -90,10 +92,38 @@ class _SignupScreenState extends State<SignupScreen> {
     }
   }
 
-  void _showComingSoon() {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text(AppStrings.socialAuthComingSoon)));
+  Future<void> _signInWithGoogle() => _submitSocial(
+        () => SocialAuthService.signInWithGoogle(vehicleType: widget.vehicleType),
+      );
+
+  Future<void> _signInWithFacebook() => _submitSocial(
+        () => SocialAuthService.signInWithFacebook(vehicleType: widget.vehicleType),
+      );
+
+  Future<void> _submitSocial(
+    Future<SocialSignInResult?> Function() signIn,
+  ) async {
+    if (_submitting) return;
+    setState(() {
+      _submitting = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final result = await signIn();
+      if (!mounted || result == null) return;
+
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        result.needsPhone ? AppRoutes.completeProfile : AppRoutes.home,
+        (route) => false,
+      );
+    } on FirebaseAuthException catch (e) {
+      setState(() => _errorMessage = _messageForAuthError(e));
+    } catch (_) {
+      setState(() => _errorMessage = AppStrings.socialAuthError);
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
   }
 
   @override
@@ -230,16 +260,16 @@ class _SignupScreenState extends State<SignupScreen> {
                       ],
                     ),
                     const SizedBox(height: 20),
-                    _SocialButton(
-                      icon: Icons.g_mobiledata_rounded,
+                    SocialButton(
+                      logo: const GoogleLogo(),
                       label: AppStrings.continueWithGoogle,
-                      onTap: _showComingSoon,
+                      onTap: _submitting ? null : _signInWithGoogle,
                     ),
                     const SizedBox(height: 12),
-                    _SocialButton(
-                      icon: Icons.facebook_rounded,
+                    SocialButton(
+                      logo: const FacebookLogo(),
                       label: AppStrings.continueWithFacebook,
-                      onTap: _showComingSoon,
+                      onTap: _submitting ? null : _signInWithFacebook,
                     ),
                     const SizedBox(height: 24),
                     Center(
@@ -254,41 +284,6 @@ class _SignupScreenState extends State<SignupScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _SocialButton extends StatelessWidget {
-  const _SocialButton({required this.icon, required this.label, required this.onTap});
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.textPrimary,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        child: Container(
-          height: 56,
-          alignment: Alignment.center,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, color: AppColors.lightTextPrimary),
-              const SizedBox(width: 10),
-              Text(
-                label,
-                style: const TextStyle(color: AppColors.lightTextPrimary, fontWeight: FontWeight.w600),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

@@ -450,11 +450,7 @@ class _InfoStep extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 18),
-          _FieldLabel(
-            isCar
-                ? AppStrings.wizardFieldPlateCar
-                : AppStrings.wizardFieldPlateCar,
-          ),
+          const _FieldLabel(AppStrings.wizardFieldPlateCar),
           TextFormField(
             controller: plateController,
             textCapitalization: TextCapitalization.characters,

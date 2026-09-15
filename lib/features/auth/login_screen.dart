@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants/app_strings.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/widgets/social_button.dart';
 import '../../routes/app_routes.dart';
+import '../../services/social_auth_service.dart';
 
 /// Connexion par e-mail + mot de passe.
 class LoginScreen extends StatefulWidget {
@@ -71,10 +73,34 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _showComingSoon() {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text(AppStrings.socialAuthComingSoon)));
+  Future<void> _signInWithGoogle() => _submitSocial(SocialAuthService.signInWithGoogle);
+
+  Future<void> _signInWithFacebook() => _submitSocial(SocialAuthService.signInWithFacebook);
+
+  Future<void> _submitSocial(
+    Future<SocialSignInResult?> Function() signIn,
+  ) async {
+    if (_submitting) return;
+    setState(() {
+      _submitting = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final result = await signIn();
+      if (!mounted || result == null) return;
+
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        result.needsPhone ? AppRoutes.completeProfile : AppRoutes.home,
+        (route) => false,
+      );
+    } on FirebaseAuthException catch (e) {
+      setState(() => _errorMessage = _messageForAuthError(e));
+    } catch (_) {
+      setState(() => _errorMessage = AppStrings.socialAuthError);
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
   }
 
   @override
@@ -161,9 +187,17 @@ class _LoginScreenState extends State<LoginScreen> {
                       ],
                     ),
                     const SizedBox(height: 20),
-                    _SocialButton(label: AppStrings.continueWithGoogle, onTap: _showComingSoon),
+                    SocialButton(
+                      logo: const GoogleLogo(),
+                      label: AppStrings.continueWithGoogle,
+                      onTap: _submitting ? null : _signInWithGoogle,
+                    ),
                     const SizedBox(height: 12),
-                    _SocialButton(label: AppStrings.continueWithFacebook, onTap: _showComingSoon),
+                    SocialButton(
+                      logo: const FacebookLogo(),
+                      label: AppStrings.continueWithFacebook,
+                      onTap: _submitting ? null : _signInWithFacebook,
+                    ),
                     const SizedBox(height: 24),
                     Center(
                       child: RichText(
@@ -192,33 +226,6 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _SocialButton extends StatelessWidget {
-  const _SocialButton({required this.label, required this.onTap});
-
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.textPrimary,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        child: Container(
-          height: 56,
-          alignment: Alignment.center,
-          child: Text(
-            label,
-            style: const TextStyle(color: AppColors.lightTextPrimary, fontWeight: FontWeight.w600),
-          ),
-        ),
       ),
     );
   }

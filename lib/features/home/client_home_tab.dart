@@ -66,8 +66,16 @@ class ClientHomeTab extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          AppStrings.homePromoTitle,
+                        Text.rich(
+                          TextSpan(
+                            children: [
+                              const TextSpan(text: 'Paiements faciles et sécurisés avec '),
+                              TextSpan(
+                                text: 'Yame',
+                                style: const TextStyle(color: AppColors.accentBright),
+                              ),
+                            ],
+                          ),
                           style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 16),
                         ),
                         const SizedBox(height: 6),

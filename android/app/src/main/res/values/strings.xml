@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Yame</string>
+
+    <!-- TODO(yame): à remplacer par les vraies valeurs de
+         https://developers.facebook.com/apps > votre app > Paramètres de base.
+         Sans ça, SocialAuthService.signInWithFacebook() échoue. -->
+    <string name="facebook_app_id">YOUR_FACEBOOK_APP_ID</string>
+    <string name="facebook_client_token">YOUR_FACEBOOK_CLIENT_TOKEN</string>
+    <string name="fb_login_protocol_scheme">fbYOUR_FACEBOOK_APP_ID</string>
+</resources>
