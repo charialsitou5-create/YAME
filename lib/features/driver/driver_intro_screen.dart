@@ -28,7 +28,7 @@ class DriverIntroScreen extends StatelessWidget {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          Image.asset('assets/images/skyline_hero.jpg', fit: BoxFit.cover),
+          Image.asset('assets/images/driver_hero.jpg', fit: BoxFit.cover),
           const DecoratedBox(decoration: BoxDecoration(color: Color(0xCC0B0B10))),
           SafeArea(
             child: Padding(

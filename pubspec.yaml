@@ -75,7 +75,7 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/images/skyline_hero.jpg
+    - assets/images/driver_hero.jpg
     - assets/images/vehicle_car.jpg
     - assets/images/vehicle_moto.jpg
 
