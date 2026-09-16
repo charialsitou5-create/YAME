@@ -275,9 +275,10 @@ class _ProfileCard extends StatelessWidget {
             width: 64,
             height: 64,
             alignment: Alignment.center,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: AppColors.accent,
               shape: BoxShape.circle,
+              border: Border.all(color: AppColors.accentBright, width: 2),
             ),
             child: Text(
               name.isNotEmpty ? name[0].toUpperCase() : '?',

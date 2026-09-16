@@ -91,7 +91,16 @@ class ClientHomeTab extends StatelessWidget {
             ),
             const SizedBox(height: 28),
             Text(AppStrings.homeServiceTitle, style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 14),
+            const SizedBox(height: 6),
+            Container(
+              width: 28,
+              height: 3,
+              decoration: BoxDecoration(
+                color: AppColors.accent,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
             _ServiceTile(
               image: 'assets/images/vehicle_car.jpg',
               icon: Icons.directions_car_filled_rounded,
@@ -150,8 +159,11 @@ class _ServiceTile extends StatelessWidget {
                 width: 38,
                 height: 38,
                 alignment: Alignment.center,
-                decoration: const BoxDecoration(color: AppColors.accent, shape: BoxShape.circle),
-                child: Icon(icon, size: 20, color: AppColors.background),
+                decoration: BoxDecoration(
+                  color: AppColors.accent.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 20, color: AppColors.accent),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -167,7 +179,20 @@ class _ServiceTile extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary),
+              Container(
+                width: 30,
+                height: 30,
+                alignment: Alignment.center,
+                decoration: const BoxDecoration(
+                  color: AppColors.surfaceElevated,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.chevron_right_rounded,
+                  size: 18,
+                  color: AppColors.textPrimary,
+                ),
+              ),
             ],
           ),
         ),

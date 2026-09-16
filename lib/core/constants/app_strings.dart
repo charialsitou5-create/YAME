@@ -107,15 +107,16 @@ class AppStrings {
   static const bookingNoDriverFoundTitle = 'Aucun chauffeur disponible';
   static const bookingNoDriverFoundBody =
       'Personne n\'a pu prendre votre course pour le moment. Réessayez dans quelques instants.';
-  static const bookingNoDriverFound = 'Aucun chauffeur disponible pour le moment.';
+  static const bookingNoDriverFound =
+      'Aucun chauffeur disponible pour le moment.';
   static const bookingAccepted = 'Chauffeur trouvé';
   static const bookingDriverOnTheWay = 'arrive pour vous prendre en charge.';
   static const bookingSharePosition = 'Partager ma position';
-  static const bookingSharePositionSheetTitle = 'Partager ma position avec un proche';
   static const bookingSharePositionWhatsapp = 'WhatsApp';
   static const bookingSharePositionSms = 'SMS';
   static const bookingSharePositionCopy = 'Copier le lien';
-  static const bookingSharePositionCopied = 'Lien copié dans le presse-papiers.';
+  static const bookingSharePositionCopied =
+      'Lien copié dans le presse-papiers.';
   static const bookingSharePositionMessage =
       'Voici ma position actuelle en course avec Yame :';
   static const bookingSharePositionError =
@@ -124,6 +125,32 @@ class AppStrings {
   static const bookingCompletedTitle = 'Course terminée';
   static const bookingRateDriver = 'Noter le chauffeur';
   static const bookingPayRide = 'Payer la course';
+
+  // Annulation de course
+  static const cancelReasonTitle = 'Annuler la course';
+  static const cancelReasonQuestion = 'Sélectionnez la raison de l\'annulation';
+  static const cancelReasonDriverFar = 'Chauffeur trop loin';
+  static const cancelReasonWaitTooLong = 'Délai d\'attente trop long';
+  static const cancelReasonPlansChanged = 'Changement de plans';
+  static const cancelReasonPaymentIssue = 'Problème de paiement';
+  static const cancelReasonDriverIssue = 'Problème avec le chauffeur';
+  static const cancelReasonOther = 'Autre raison';
+  static const cancelReasonCommentLabel = 'Commentaires (optionnel)';
+  static const cancelReasonCommentHint = 'Dites-nous un peu...';
+  static const cancelReasonConfirm = 'Confirmer l\'annulation';
+  static const cancelReasonErrorRequired =
+      'Choisissez une raison pour continuer.';
+
+  // Partage de position
+  static const sharePositionTitle = 'Partager ma position';
+  static const sharePositionSubtitle =
+      'Partager ma position actuelle avec vos proches.';
+  static const sharePositionLinkActive = 'Lien de partage actif';
+  static const sharePositionShareVia = 'Partage via';
+  static const sharePositionMore = 'Plus';
+  static const sharePositionNotice =
+      'Ce lien pointe vers votre position au moment du partage — il ne se met pas à jour automatiquement.';
+  static const sharePositionClose = 'Fermer';
 
   // Paiement de la course
   static const paymentTitle = 'Paiement';
@@ -172,7 +199,8 @@ class AppStrings {
   static const driverCancelRide = 'Annuler la course';
   static const driverRequestTaken =
       'Cette course vient d\'être prise par un autre chauffeur.';
-  static const driverActiveRideUnavailable = 'Cette course n\'est plus disponible.';
+  static const driverActiveRideUnavailable =
+      'Cette course n\'est plus disponible.';
   static const driverActiveRideUnavailableCta = 'Retour aux courses';
   static const driverContactPassenger = 'Contacter le passager';
   static const driverBalanceRequired =
@@ -186,7 +214,6 @@ class AppStrings {
       'Votre inscription n\'a pas pu être validée. Contactez le support Yame pour en savoir plus.';
 
   // Tableau de bord chauffeur (aperçu)
-  static const driverDashboardTooltip = 'Aperçu du tableau de bord';
   static const driverDashboardTitle = 'Chauffeur';
   static const driverDashboardRechargeAccount = 'Compte Recharge';
   static const driverDashboardRechargeAccountSubtitle = '(Credits courses)';

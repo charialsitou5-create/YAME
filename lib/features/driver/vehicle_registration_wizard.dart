@@ -217,43 +217,51 @@ class _VehicleRegistrationWizardState extends State<VehicleRegistrationWizard> {
             ),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-                child: switch (_step) {
-                  0 => _InfoStep(
-                    isCar: _isCar,
-                    formKey: _formKey,
-                    modelController: _modelController,
-                    yearController: _yearController,
-                    colorController: _colorController,
-                    plateController: _plateController,
-                    seats: _seats,
-                    onSeatsChanged: (value) => setState(() => _seats = value),
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+                child: Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: AppColors.border),
                   ),
-                  1 => _ImagesStep(
-                    isCar: _isCar,
-                    labels: _photoLabels,
-                    photos: _photos,
-                    onPick: (label) async {
-                      final file = await _pickImage();
-                      if (file != null) setState(() => _photos[label] = file);
-                    },
-                  ),
-                  _ => _DocumentsStep(
-                    isCar: _isCar,
-                    registrationCard: _registrationCardPhoto,
-                    license: _licensePhoto,
-                    onPickRegistration: () async {
-                      final file = await _pickImage();
-                      if (file != null) {
-                        setState(() => _registrationCardPhoto = file);
-                      }
-                    },
-                    onPickLicense: () async {
-                      final file = await _pickImage();
-                      if (file != null) setState(() => _licensePhoto = file);
-                    },
-                  ),
-                },
+                  child: switch (_step) {
+                    0 => _InfoStep(
+                      isCar: _isCar,
+                      formKey: _formKey,
+                      modelController: _modelController,
+                      yearController: _yearController,
+                      colorController: _colorController,
+                      plateController: _plateController,
+                      seats: _seats,
+                      onSeatsChanged: (value) => setState(() => _seats = value),
+                    ),
+                    1 => _ImagesStep(
+                      isCar: _isCar,
+                      labels: _photoLabels,
+                      photos: _photos,
+                      onPick: (label) async {
+                        final file = await _pickImage();
+                        if (file != null) setState(() => _photos[label] = file);
+                      },
+                    ),
+                    _ => _DocumentsStep(
+                      isCar: _isCar,
+                      registrationCard: _registrationCardPhoto,
+                      license: _licensePhoto,
+                      onPickRegistration: () async {
+                        final file = await _pickImage();
+                        if (file != null) {
+                          setState(() => _registrationCardPhoto = file);
+                        }
+                      },
+                      onPickLicense: () async {
+                        final file = await _pickImage();
+                        if (file != null) setState(() => _licensePhoto = file);
+                      },
+                    ),
+                  },
+                ),
               ),
             ),
             Padding(

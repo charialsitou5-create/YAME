@@ -121,7 +121,19 @@ class _NavItem extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: color, size: 24),
+            Container(
+              width: 34,
+              height: 30,
+              alignment: Alignment.center,
+              decoration: selected
+                  ? BoxDecoration(
+                      color: AppColors.accent.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.accent.withValues(alpha: 0.5)),
+                    )
+                  : null,
+              child: Icon(icon, color: color, size: 22),
+            ),
             const SizedBox(height: 4),
             Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600)),
           ],

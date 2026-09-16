@@ -1,12 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/constants/app_strings.dart';
 import '../../core/theme/app_colors.dart';
@@ -14,9 +12,11 @@ import '../../models/ride_request.dart';
 import '../../models/vehicle_type.dart';
 import '../../routes/app_routes.dart';
 import '../../services/dispatch_service.dart';
+import 'cancel_reason_screen.dart';
 import 'payment_screen.dart';
 import 'rating_screen.dart';
 import 'recipient_details_screen.dart';
+import 'share_position_screen.dart';
 
 /// Coordonnées approximatives du centre de Pointe-Noire, utilisées tant que
 /// la position de l'utilisateur n'est pas connue.
@@ -63,7 +63,10 @@ class _BookingScreenState extends State<BookingScreen> {
   Future<void> _recoverActiveRequest() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
-    final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+    final doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .get();
     final activeId = doc.data()?['clientActiveRideId'] as String?;
     if (activeId != null && mounted) {
       setState(() => _activeRequestId = activeId);
@@ -95,13 +98,18 @@ class _BookingScreenState extends State<BookingScreen> {
       final latLng = LatLng(position.latitude, position.longitude);
       await _setPoint(_PickMode.pickup, latLng, animateCamera: true);
     } catch (_) {
-      if (mounted) setState(() => _locationError = AppStrings.bookingLocationDenied);
+      if (mounted)
+        setState(() => _locationError = AppStrings.bookingLocationDenied);
     } finally {
       if (mounted) setState(() => _locating = false);
     }
   }
 
-  Future<void> _setPoint(_PickMode mode, LatLng point, {bool animateCamera = false}) async {
+  Future<void> _setPoint(
+    _PickMode mode,
+    LatLng point, {
+    bool animateCamera = false,
+  }) async {
     setState(() {
       if (mode == _PickMode.pickup) {
         _pickupPosition = point;
@@ -151,9 +159,11 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   Future<void> _editRecipient() async {
-    final result = await Navigator.of(
-      context,
-    ).push<RideRecipient>(MaterialPageRoute(builder: (_) => RecipientDetailsScreen(initial: _recipient)));
+    final result = await Navigator.of(context).push<RideRecipient>(
+      MaterialPageRoute(
+        builder: (_) => RecipientDetailsScreen(initial: _recipient),
+      ),
+    );
     if (result == null || !mounted) return;
     setState(() => _recipient = result);
   }
@@ -177,7 +187,10 @@ class _BookingScreenState extends State<BookingScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text(AppStrings.logout, style: TextStyle(color: AppColors.error)),
+            child: const Text(
+              AppStrings.logout,
+              style: TextStyle(color: AppColors.error),
+            ),
           ),
         ],
       ),
@@ -186,16 +199,21 @@ class _BookingScreenState extends State<BookingScreen> {
 
     await FirebaseAuth.instance.signOut();
     if (!mounted) return;
-    Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.onboarding, (route) => false);
+    Navigator.of(context)
+        .pushNamedAndRemoveUntil(AppRoutes.onboarding, (route) => false);
   }
 
   Future<void> _requestDriver() async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null || _pickupPosition == null || _destinationPosition == null) return;
+    if (user == null || _pickupPosition == null || _destinationPosition == null)
+      return;
 
     setState(() => _submittingRequest = true);
     try {
-      final profile = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final profile = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
       final clientName = profile.data()?['name'] as String? ?? '';
 
       final request = RideRequest(
@@ -212,7 +230,9 @@ class _BookingScreenState extends State<BookingScreen> {
         recipientInstructions: _recipient?.instructions,
         contactRequesterInstead: _recipient?.contactRequesterInstead ?? false,
       );
-      final requestRef = FirebaseFirestore.instance.collection('ride_requests').doc();
+      final requestRef = FirebaseFirestore.instance
+          .collection('ride_requests')
+          .doc();
       final batch = FirebaseFirestore.instance.batch()
         ..set(requestRef, request.toMap())
         ..update(FirebaseFirestore.instance.collection('users').doc(user.uid), {
@@ -245,13 +265,15 @@ class _BookingScreenState extends State<BookingScreen> {
     }
   }
 
-  Future<void> _cancelRequest() async {
+  Future<void> _cancelRequest({required String reason, String? comment}) async {
     final id = _activeRequestId;
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (id == null || uid == null) return;
     final batch = FirebaseFirestore.instance.batch()
       ..update(FirebaseFirestore.instance.collection('ride_requests').doc(id), {
         'status': RideStatus.cancelled.firestoreValue,
+        'cancelReason': reason,
+        if (comment != null) 'cancelComment': comment,
       })
       ..update(FirebaseFirestore.instance.collection('users').doc(uid), {
         'clientActiveRideId': null,
@@ -267,22 +289,14 @@ class _BookingScreenState extends State<BookingScreen> {
           point: _pickupPosition!,
           width: 40,
           height: 40,
-          child: const Icon(
-            Icons.location_on,
-            color: Colors.green,
-            size: 40,
-          ),
+          child: const Icon(Icons.location_on, color: Colors.green, size: 40),
         ),
       if (_destinationPosition != null)
         Marker(
           point: _destinationPosition!,
           width: 40,
           height: 40,
-          child: const Icon(
-            Icons.location_on,
-            color: Colors.orange,
-            size: 40,
-          ),
+          child: const Icon(Icons.location_on, color: Colors.orange, size: 40),
         ),
     ];
   }
@@ -317,12 +331,13 @@ class _BookingScreenState extends State<BookingScreen> {
               StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
                 stream: _activeRequestId != null
                     ? FirebaseFirestore.instance
-                        .collection('ride_requests')
-                        .doc(_activeRequestId)
-                        .snapshots()
+                          .collection('ride_requests')
+                          .doc(_activeRequestId)
+                          .snapshots()
                     : const Stream.empty(),
                 builder: (context, rideSnap) {
-                  final driverUid = rideSnap.data?.data()?['driverUid'] as String?;
+                  final driverUid =
+                      rideSnap.data?.data()?['driverUid'] as String?;
                   if (driverUid == null) {
                     return MarkerLayer(markers: _buildStaticMarkers());
                   }
@@ -337,7 +352,9 @@ class _BookingScreenState extends State<BookingScreen> {
                     builder: (context, driverSnap) {
                       final locationData = driverSnap.data?.data();
                       LatLng? driverPos;
-                      if (locationData != null && locationData['lat'] != null && locationData['lng'] != null) {
+                      if (locationData != null &&
+                          locationData['lat'] != null &&
+                          locationData['lng'] != null) {
                         driverPos = LatLng(
                           (locationData['lat'] as num).toDouble(),
                           (locationData['lng'] as num).toDouble(),
@@ -379,14 +396,16 @@ class _BookingScreenState extends State<BookingScreen> {
             ],
           ),
 
-
           if (_locating)
             const Positioned(
               top: 56,
               left: 0,
               right: 0,
               child: Center(
-                child: _StatusPill(icon: Icons.my_location, text: AppStrings.bookingLocatingMe),
+                child: _StatusPill(
+                  icon: Icons.my_location,
+                  text: AppStrings.bookingLocatingMe,
+                ),
               ),
             )
           else if (_locationError != null)
@@ -395,7 +414,10 @@ class _BookingScreenState extends State<BookingScreen> {
               left: 24,
               right: 24,
               child: Center(
-                child: _StatusPill(icon: Icons.location_off, text: _locationError!),
+                child: _StatusPill(
+                  icon: Icons.location_off,
+                  text: _locationError!,
+                ),
               ),
             ),
           Positioned(
@@ -435,7 +457,8 @@ class _BookingScreenState extends State<BookingScreen> {
                     submitting: _submittingRequest,
                     recipient: _recipient,
                     onModeChanged: (mode) => setState(() => _pickMode = mode),
-                    onVehicleChanged: (type) => setState(() => _vehicleType = type),
+                    onVehicleChanged: (type) =>
+                        setState(() => _vehicleType = type),
                     onRequest: _requestDriver,
                     onEditRecipient: _editRecipient,
                     onClearRecipient: _clearRecipient,
@@ -447,7 +470,9 @@ class _BookingScreenState extends State<BookingScreen> {
                         .snapshots(),
                     builder: (context, snapshot) {
                       final doc = snapshot.data;
-                      final ride = (doc != null && doc.exists) ? RideRequest.fromDoc(doc) : null;
+                      final ride = (doc != null && doc.exists)
+                          ? RideRequest.fromDoc(doc)
+                          : null;
                       if (ride != null &&
                           !_clientActiveRideCleared &&
                           (ride.status == RideStatus.completed ||
@@ -465,7 +490,8 @@ class _BookingScreenState extends State<BookingScreen> {
                       return _RideStatusPanel(
                         status: ride?.status ?? RideStatus.searching,
                         ride: ride,
-                        onCancel: _cancelRequest,
+                        onCancel: (reason, comment) =>
+                            _cancelRequest(reason: reason, comment: comment),
                         onNewBooking: _startNewBooking,
                       );
                     },
@@ -497,7 +523,9 @@ class _StatusPill extends StatelessWidget {
         children: [
           Icon(icon, size: 16, color: AppColors.accent),
           const SizedBox(width: 8),
-          Flexible(child: Text(text, style: Theme.of(context).textTheme.bodyMedium)),
+          Flexible(
+            child: Text(text, style: Theme.of(context).textTheme.bodyMedium),
+          ),
         ],
       ),
     );
@@ -576,27 +604,24 @@ class _BookingPanel extends StatelessWidget {
               final selected = type == vehicleType;
               return Expanded(
                 child: Padding(
-                  padding: EdgeInsets.only(right: type == VehicleType.values.first ? 8 : 0),
-                  child: OutlinedButton.icon(
-                    onPressed: () => onVehicleChanged(type),
-                    icon: Icon(
-                      type == VehicleType.car
-                          ? Icons.directions_car_filled_rounded
-                          : Icons.two_wheeler_rounded,
-                    ),
-                    label: Text(type.label),
-                    style: OutlinedButton.styleFrom(
-                      backgroundColor: selected ? AppColors.accent.withValues(alpha: 0.12) : null,
-                      side: BorderSide(color: selected ? AppColors.accent : AppColors.border),
-                      foregroundColor: selected ? AppColors.accent : AppColors.textPrimary,
-                    ),
+                  padding: EdgeInsets.only(
+                    right: type == VehicleType.values.first ? 10 : 0,
+                  ),
+                  child: _VehicleTypeCard(
+                    type: type,
+                    selected: selected,
+                    onTap: () => onVehicleChanged(type),
                   ),
                 ),
               );
             }).toList(),
           ),
           const SizedBox(height: 14),
-          _RecipientRow(recipient: recipient, onEdit: onEditRecipient, onClear: onClearRecipient),
+          _RecipientRow(
+            recipient: recipient,
+            onEdit: onEditRecipient,
+            onClear: onClearRecipient,
+          ),
           const SizedBox(height: 16),
           ElevatedButton(
             onPressed: (canRequest && !submitting) ? onRequest : null,
@@ -614,8 +639,76 @@ class _BookingPanel extends StatelessWidget {
   }
 }
 
+class _VehicleTypeCard extends StatelessWidget {
+  const _VehicleTypeCard({
+    required this.type,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final VehicleType type;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected
+          ? AppColors.accent.withValues(alpha: 0.12)
+          : AppColors.fieldFill,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: selected ? AppColors.accent : AppColors.border,
+            ),
+          ),
+          child: Column(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppColors.accent.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  type == VehicleType.car
+                      ? Icons.directions_car_filled_rounded
+                      : Icons.two_wheeler_rounded,
+                  size: 18,
+                  color: AppColors.accent,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                type.label,
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                  color: selected ? AppColors.accent : AppColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _RecipientRow extends StatelessWidget {
-  const _RecipientRow({required this.recipient, required this.onEdit, required this.onClear});
+  const _RecipientRow({
+    required this.recipient,
+    required this.onEdit,
+    required this.onClear,
+  });
 
   final RideRecipient? recipient;
   final VoidCallback onEdit;
@@ -632,13 +725,16 @@ class _RecipientRow extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 4),
           child: Row(
             children: [
-              const Icon(Icons.person_add_alt_rounded, size: 18, color: AppColors.textSecondary),
+              const Icon(
+                Icons.person_add_alt_rounded,
+                size: 18,
+                color: AppColors.textSecondary,
+              ),
               const SizedBox(width: 10),
               Text(
                 AppStrings.orderForSomeoneCta,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+                style: Theme.of(context).textTheme.bodyMedium
+                    ?.copyWith(color: AppColors.textSecondary),
               ),
             ],
           ),
@@ -670,7 +766,11 @@ class _RecipientRow extends StatelessWidget {
             IconButton(
               onPressed: onClear,
               tooltip: AppStrings.orderForSomeoneClear,
-              icon: const Icon(Icons.close_rounded, size: 18, color: AppColors.textSecondary),
+              icon: const Icon(
+                Icons.close_rounded,
+                size: 18,
+                color: AppColors.textSecondary,
+              ),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
             ),
@@ -691,13 +791,21 @@ class _RideStatusPanel extends StatelessWidget {
 
   final RideStatus status;
   final RideRequest? ride;
-  final VoidCallback onCancel;
+  final void Function(String reason, String? comment) onCancel;
   final VoidCallback onNewBooking;
+
+  Future<void> _cancelWithReason(BuildContext context) async {
+    final result = await Navigator.of(context).push<CancelReason>(
+      MaterialPageRoute(builder: (_) => const CancelReasonScreen()),
+    );
+    if (result != null) onCancel(result.reason, result.comment);
+  }
 
   Future<void> _rateDriver(BuildContext context) async {
     final id = ride?.id;
     if (id == null) return;
-    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => RatingScreen(rideId: id)));
+    await Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => RatingScreen(rideId: id)));
     onNewBooking();
   }
 
@@ -721,15 +829,14 @@ class _RideStatusPanel extends StatelessWidget {
         throw StateError('denied');
       }
       final position = await Geolocator.getCurrentPosition();
-      final link = 'https://maps.google.com/?q=${position.latitude},${position.longitude}';
+      final point = LatLng(position.latitude, position.longitude);
+      final link =
+          'https://maps.google.com/?q=${position.latitude},${position.longitude}';
       if (!context.mounted) return;
-      await showModalBottomSheet<void>(
-        context: context,
-        backgroundColor: AppColors.surfaceElevated,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => SharePositionScreen(position: point, link: link),
         ),
-        builder: (_) => _SharePositionSheet(link: link),
       );
     } catch (_) {
       if (!context.mounted) return;
@@ -752,145 +859,92 @@ class _RideStatusPanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: switch (status) {
           RideStatus.searching => [
-              const Row(
-                children: [
-                  SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.accent),
+            const Row(
+              children: [
+                SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppColors.accent,
                   ),
-                  SizedBox(width: 14),
-                  Expanded(child: Text(AppStrings.bookingSearching)),
-                ],
-              ),
-              const SizedBox(height: 20),
-              OutlinedButton(onPressed: onCancel, child: const Text(AppStrings.bookingCancel)),
-            ],
-          RideStatus.accepted => [
-              Text(AppStrings.bookingAccepted, style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 6),
-              Text(
-                '${ride?.driverName?.isNotEmpty == true ? ride!.driverName : AppStrings.driverClient} ${AppStrings.bookingDriverOnTheWay}',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 16),
-              OutlinedButton.icon(
-                onPressed: () => _sharePosition(context),
-                icon: const Icon(Icons.share_location_rounded, size: 18),
-                label: const Text(AppStrings.bookingSharePosition),
-              ),
-            ],
-          RideStatus.completed => [
-              Text(AppStrings.bookingCompletedTitle, style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => _payRide(context),
-                child: const Text(AppStrings.bookingPayRide),
-              ),
-              const SizedBox(height: 10),
-              OutlinedButton(
-                onPressed: () => _rateDriver(context),
-                child: const Text(AppStrings.bookingRateDriver),
-              ),
-              const SizedBox(height: 10),
-              TextButton(
-                onPressed: onNewBooking,
-                child: const Text(AppStrings.bookingNewRequest),
-              ),
-            ],
-          RideStatus.cancelled => [
-              Text(AppStrings.bookingCancelled, style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: onNewBooking,
-                child: const Text(AppStrings.bookingNewRequest),
-              ),
-            ],
-          RideStatus.noDriverFound => [
-              Text(
-                AppStrings.bookingNoDriverFoundTitle,
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                AppStrings.bookingNoDriverFoundBody,
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: onNewBooking,
-                child: const Text(AppStrings.bookingNewRequest),
-              ),
-            ],
-        },
-      ),
-    );
-  }
-}
-
-/// Feuille modale proposant de partager un lien Google Maps vers la
-/// position actuelle de l'utilisateur (instantané, pas de suivi live) via
-/// WhatsApp, SMS, ou en le copiant dans le presse-papiers.
-class _SharePositionSheet extends StatelessWidget {
-  const _SharePositionSheet({required this.link});
-
-  final String link;
-
-  Future<void> _openWhatsapp(BuildContext context) async {
-    final text = Uri.encodeComponent('${AppStrings.bookingSharePositionMessage} $link');
-    final launched = await launchUrl(Uri.parse('https://wa.me/?text=$text'));
-    if (!launched && context.mounted) Navigator.of(context).pop();
-  }
-
-  Future<void> _openSms(BuildContext context) async {
-    final body = Uri.encodeComponent('${AppStrings.bookingSharePositionMessage} $link');
-    final launched = await launchUrl(Uri.parse('sms:?body=$body'));
-    if (!launched && context.mounted) Navigator.of(context).pop();
-  }
-
-  Future<void> _copyLink(BuildContext context) async {
-    await Clipboard.setData(ClipboardData(text: link));
-    if (!context.mounted) return;
-    Navigator.of(context).pop();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text(AppStrings.bookingSharePositionCopied)),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              AppStrings.bookingSharePositionSheetTitle,
-              style: Theme.of(context).textTheme.titleMedium,
+                ),
+                SizedBox(width: 14),
+                Expanded(child: Text(AppStrings.bookingSearching)),
+              ],
             ),
-            const SizedBox(height: 16),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.chat_rounded, color: AppColors.success),
-              title: const Text(AppStrings.bookingSharePositionWhatsapp),
-              onTap: () => _openWhatsapp(context),
-            ),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.sms_rounded, color: Color(0xFF3B82F6)),
-              title: const Text(AppStrings.bookingSharePositionSms),
-              onTap: () => _openSms(context),
-            ),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.copy_rounded, color: AppColors.textSecondary),
-              title: const Text(AppStrings.bookingSharePositionCopy),
-              onTap: () => _copyLink(context),
+            const SizedBox(height: 20),
+            OutlinedButton(
+              onPressed: () => _cancelWithReason(context),
+              child: const Text(AppStrings.bookingCancel),
             ),
           ],
-        ),
+          RideStatus.accepted => [
+            Text(
+              AppStrings.bookingAccepted,
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '${ride?.driverName?.isNotEmpty == true ? ride!.driverName : AppStrings.driverClient} ${AppStrings.bookingDriverOnTheWay}',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: () => _sharePosition(context),
+              icon: const Icon(Icons.share_location_rounded, size: 18),
+              label: const Text(AppStrings.bookingSharePosition),
+            ),
+          ],
+          RideStatus.completed => [
+            Text(
+              AppStrings.bookingCompletedTitle,
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () => _payRide(context),
+              child: const Text(AppStrings.bookingPayRide),
+            ),
+            const SizedBox(height: 10),
+            OutlinedButton(
+              onPressed: () => _rateDriver(context),
+              child: const Text(AppStrings.bookingRateDriver),
+            ),
+            const SizedBox(height: 10),
+            TextButton(
+              onPressed: onNewBooking,
+              child: const Text(AppStrings.bookingNewRequest),
+            ),
+          ],
+          RideStatus.cancelled => [
+            Text(
+              AppStrings.bookingCancelled,
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: onNewBooking,
+              child: const Text(AppStrings.bookingNewRequest),
+            ),
+          ],
+          RideStatus.noDriverFound => [
+            Text(
+              AppStrings.bookingNoDriverFoundTitle,
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              AppStrings.bookingNoDriverFoundBody,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: onNewBooking,
+              child: const Text(AppStrings.bookingNewRequest),
+            ),
+          ],
+        },
       ),
     );
   }
@@ -926,7 +980,9 @@ class _LocationTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: selected ? AppColors.accent : AppColors.border),
+          border: Border.all(
+            color: selected ? AppColors.accent : AppColors.border,
+          ),
         ),
         child: Row(
           children: [
