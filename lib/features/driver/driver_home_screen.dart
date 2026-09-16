@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../core/constants/app_strings.dart';
 import '../../core/theme/app_colors.dart';
@@ -13,11 +15,13 @@ import '../../services/dispatch_response_service.dart';
 import '../../services/driver_tracking_service.dart';
 import '../support/report_issue_screen.dart';
 import 'contact_passenger_screen.dart';
-import 'driver_dashboard_screen.dart';
 import 'recharge_screen.dart';
 
-/// Écran chauffeur : bascule en ligne/hors ligne, liste des demandes de
-/// course ouvertes pour son type de véhicule, et suivi de la course acceptée.
+const _pointeNoireCenter = LatLng(-4.7889, 11.8656);
+
+/// Écran chauffeur : bascule en ligne/hors ligne, carte live, solde, liste
+/// des demandes de course ouvertes pour son type de véhicule, et suivi de
+/// la course acceptée.
 class DriverHomeScreen extends StatefulWidget {
   const DriverHomeScreen({
     super.key,
@@ -36,6 +40,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   bool _online = false;
   String? _activeRideId;
   final DriverTrackingService _trackingService = DriverTrackingService();
+  final _mapController = MapController();
 
   @override
   void initState() {
@@ -46,7 +51,10 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   Future<void> _recoverActiveRide() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
-    final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+    final doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .get();
     final activeId = doc.data()?['driverActiveRideId'] as String?;
     final wasOnline = doc.data()?['driverOnline'] as bool? ?? false;
     if (!mounted) return;
@@ -75,10 +83,9 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     setState(() => _online = value);
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid != null) {
-      FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .update({'driverOnline': value});
+      FirebaseFirestore.instance.collection('users').doc(uid).update({
+        'driverOnline': value,
+      });
     }
     if (value) {
       _trackingService.startTracking();
@@ -86,7 +93,6 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       _trackingService.stopTracking();
     }
   }
-
 
   Future<void> _logout() async {
     if (_online) _toggleOnline(false);
@@ -130,7 +136,9 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         .snapshots()
         .listen((snapshot) {
           final data = snapshot.data();
-          if (data != null && data['status'] == 'accepted' && data['driverUid'] == uid) {
+          if (data != null &&
+              data['status'] == 'accepted' &&
+              data['driverUid'] == uid) {
             if (!completer.isCompleted) completer.complete(true);
           }
         });
@@ -184,163 +192,550 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 8, 20, 0),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text.rich(
-                      TextSpan(
+        child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+          stream: uid == null
+              ? null
+              : FirebaseFirestore.instance
+                    .collection('driver_profiles')
+                    .doc(uid)
+                    .collection('wallet')
+                    .doc('current')
+                    .snapshots(),
+          builder: (context, snapshot) {
+            // Avant la première valeur du stream, `snapshot.data` est
+            // `null` et `balance` retomberait à 0 — indiscernable d'un
+            // solde réellement épuisé, ce qui déclenchait le garde-fou
+            // ci-dessous à tort dès l'ouverture de l'écran (bug trouvé
+            // pendant les tests manuels du dispatch, 2026-09-15).
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: CircularProgressIndicator(color: AppColors.accent),
+              );
+            }
+            final balance = snapshot.data?.data()?['balance'] as int? ?? 0;
+            final hasBalance = balance > 0;
+
+            if (_online && !hasBalance && _activeRideId == null) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) _toggleOnline(false);
+              });
+            }
+
+            return Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
                         children: [
-                          const TextSpan(text: '${AppStrings.homeGreeting} '),
-                          TextSpan(
-                            text: widget.driverName,
-                            style: const TextStyle(
-                              color: AppColors.accentBright,
+                          const Icon(
+                            Icons.pin_drop_rounded,
+                            color: AppColors.accent,
+                            size: 22,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'YAME',
+                            style: Theme.of(context).textTheme.titleLarge
+                                ?.copyWith(
+                                  color: AppColors.accent,
+                                  letterSpacing: 0.5,
+                                ),
+                          ),
+                          const Spacer(),
+                          IconButton(
+                            onPressed: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const RechargeScreen(),
+                              ),
+                            ),
+                            icon: const Icon(
+                              Icons.account_balance_wallet_outlined,
+                            ),
+                            tooltip: AppStrings.driverWallet,
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const ReportIssueScreen(),
+                              ),
+                            ),
+                            icon: const Icon(Icons.report_problem_outlined),
+                            tooltip: AppStrings.reportTitle,
+                          ),
+                          IconButton(
+                            onPressed: _logout,
+                            icon: const Icon(Icons.logout_rounded),
+                            tooltip: AppStrings.logout,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 24,
+                            backgroundColor: AppColors.accent,
+                            child: Text(
+                              widget.driverName.isNotEmpty
+                                  ? widget.driverName[0].toUpperCase()
+                                  : '?',
+                              style: const TextStyle(
+                                color: AppColors.background,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 18,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${AppStrings.homeGreeting} ${widget.driverName}',
+                                  style: Theme.of(context).textTheme.titleLarge,
+                                ),
+                                Text(
+                                  AppStrings.driverDashboardTitle,
+                                  style: const TextStyle(
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color:
+                                  (_online
+                                          ? AppColors.success
+                                          : AppColors.textDisabled)
+                                      .withValues(alpha: 0.16),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: BoxDecoration(
+                                    color: _online
+                                        ? AppColors.success
+                                        : AppColors.textDisabled,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  _online
+                                      ? AppStrings.driverOnline
+                                      : AppStrings.driverOffline,
+                                  style: TextStyle(
+                                    color: _online
+                                        ? AppColors.success
+                                        : AppColors.textSecondary,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
-                      style: Theme.of(context).textTheme.displayLarge
-                          ?.copyWith(fontSize: 24),
-                    ),
+                    ],
                   ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const RechargeScreen()),
-                    ),
-                    icon: const Icon(Icons.account_balance_wallet_outlined),
-                    tooltip: AppStrings.driverWallet,
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => DriverDashboardScreen(driverName: widget.driverName),
-                      ),
-                    ),
-                    icon: const Icon(Icons.dashboard_outlined),
-                    tooltip: AppStrings.driverDashboardTooltip,
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const ReportIssueScreen(),
-                      ),
-                    ),
-                    icon: const Icon(Icons.report_problem_outlined),
-                    tooltip: AppStrings.reportTitle,
-                  ),
-                  IconButton(
-                    onPressed: _logout,
-                    icon: const Icon(Icons.logout_rounded),
-                    tooltip: AppStrings.logout,
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-                stream: FirebaseFirestore.instance
-                    .collection('driver_profiles')
-                    .doc(FirebaseAuth.instance.currentUser?.uid)
-                    .collection('wallet')
-                    .doc('current')
-                    .snapshots(),
-                builder: (context, snapshot) {
-                  // Avant la première valeur du stream, `snapshot.data` est
-                  // `null` et `balance` retomberait à 0 — indiscernable d'un
-                  // solde réellement épuisé, ce qui déclenchait le garde-fou
-                  // ci-dessous à tort dès l'ouverture de l'écran (bug trouvé
-                  // pendant les tests manuels du dispatch, 2026-09-15).
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(
-                      child: CircularProgressIndicator(color: AppColors.accent),
-                    );
-                  }
-                  final balance =
-                      snapshot.data?.data()?['balance'] as int? ?? 0;
-                  final hasBalance = balance > 0;
-
-                  if (_online && !hasBalance && _activeRideId == null) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted) _toggleOnline(false);
-                    });
-                  }
-
-                  return Column(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 18,
-                            vertical: 14,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.surfaceElevated,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: AppColors.border),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 10,
-                                height: 10,
-                                decoration: BoxDecoration(
-                                  color: _online
-                                      ? AppColors.success
-                                      : AppColors.textDisabled,
-                                  shape: BoxShape.circle,
-                                ),
+                ),
+                const SizedBox(height: 16),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(
+                          child: _RechargeAccountCard(
+                            balance: balance,
+                            onRecharge: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const RechargeScreen(),
                               ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  _online
-                                      ? AppStrings.driverOnline
-                                      : AppStrings.driverOffline,
-                                  style: Theme.of(context).textTheme.titleLarge
-                                      ?.copyWith(fontSize: 16),
-                                ),
-                              ),
-                              Switch(
-                                value: _online,
-                                activeThumbColor: AppColors.accent,
-                                onChanged: _activeRideId == null && hasBalance
-                                    ? (value) => _toggleOnline(value)
-                                    : null,
-                              ),
-                            ],
+                            ),
                           ),
                         ),
-                      ),
-                      Expanded(
-                        child: _activeRideId != null
-                            ? _ActiveRide(
-                                rideId: _activeRideId!,
-                                onEnd: _endRide,
-                                onUnavailable: () => setState(() => _activeRideId = null),
-                              )
-                            : !hasBalance
-                            ? const _BalanceRequiredNotice()
-                            : !_online
-                            ? const _OfflineNotice()
-                            : _RideOfferCard(
-                                onRespond: _respondToOffer,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _EarningsAccountCard(
+                            balance: balance,
+                            onSeeEarnings: () => ScaffoldMessenger.of(context)
+                                .showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      AppStrings.socialAuthComingSoon,
+                                    ),
+                                  ),
+                                ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 180,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(18),
+                      child: Stack(
+                        children: [
+                          FlutterMap(
+                            mapController: _mapController,
+                            options: const MapOptions(
+                              initialCenter: _pointeNoireCenter,
+                              initialZoom: 13,
+                            ),
+                            children: [
+                              TileLayer(
+                                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                userAgentPackageName: 'com.yame.yame',
                               ),
+                              if (uid != null)
+                                StreamBuilder<
+                                  DocumentSnapshot<Map<String, dynamic>>
+                                >(
+                                  stream: FirebaseFirestore.instance
+                                      .collection('driver_profiles')
+                                      .doc(uid)
+                                      .collection('location')
+                                      .doc('current')
+                                      .snapshots(),
+                                  builder: (context, locSnap) {
+                                    final data = locSnap.data?.data();
+                                    if (data == null ||
+                                        data['lat'] == null ||
+                                        data['lng'] == null) {
+                                      return const SizedBox.shrink();
+                                    }
+                                    final pos = LatLng(
+                                      (data['lat'] as num).toDouble(),
+                                      (data['lng'] as num).toDouble(),
+                                    );
+                                    return MarkerLayer(
+                                      markers: [
+                                        Marker(
+                                          point: pos,
+                                          width: 40,
+                                          height: 40,
+                                          child: const Icon(
+                                            Icons.directions_car_rounded,
+                                            color: AppColors.accent,
+                                            size: 28,
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                ),
+                            ],
+                          ),
+                          Positioned(
+                            right: 10,
+                            bottom: 10,
+                            child: _MapControlButton(
+                              icon: Icons.my_location_rounded,
+                              onTap: () => _mapController.move(
+                                _pointeNoireCenter,
+                                _mapController.camera.zoom,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  );
-                },
-              ),
-            ),
-          ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _WaitingForRequestsBar(
+                  online: _online,
+                  canToggle: hasBalance && _activeRideId == null,
+                  onChanged: (value) => _toggleOnline(value),
+                ),
+                Expanded(
+                  child: _activeRideId != null
+                      ? _ActiveRide(
+                          rideId: _activeRideId!,
+                          onEnd: _endRide,
+                          onUnavailable: () =>
+                              setState(() => _activeRideId = null),
+                        )
+                      : !hasBalance
+                      ? const _BalanceRequiredNotice()
+                      : !_online
+                      ? const _OfflineNotice()
+                      : _RideOfferCard(onRespond: _respondToOffer),
+                ),
+              ],
+            );
+          },
         ),
+      ),
+    );
+  }
+}
+
+class _RechargeAccountCard extends StatelessWidget {
+  const _RechargeAccountCard({required this.balance, required this.onRecharge});
+
+  final int balance;
+  final VoidCallback onRecharge;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.accent,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(
+              color: AppColors.background,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.bolt_rounded,
+              color: AppColors.accent,
+              size: 20,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            AppStrings.driverDashboardRechargeAccount,
+            style: const TextStyle(
+              color: AppColors.background,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          Text(
+            AppStrings.driverDashboardRechargeAccountSubtitle,
+            style: TextStyle(
+              color: AppColors.background.withValues(alpha: 0.7),
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            '$balance FCFA',
+            style: const TextStyle(
+              color: AppColors.background,
+              fontWeight: FontWeight.w800,
+              fontSize: 22,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Icon(
+                Icons.lock_outline_rounded,
+                size: 14,
+                color: AppColors.background.withValues(alpha: 0.7),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                AppStrings.driverDashboardRechargeNonWithdrawable,
+                style: TextStyle(
+                  color: AppColors.background.withValues(alpha: 0.7),
+                  fontSize: 11,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.background,
+                foregroundColor: AppColors.accent,
+              ),
+              onPressed: onRecharge,
+              child: Text(AppStrings.driverDashboardRecharge),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EarningsAccountCard extends StatelessWidget {
+  const _EarningsAccountCard({
+    required this.balance,
+    required this.onSeeEarnings,
+  });
+
+  final int balance;
+  final VoidCallback onSeeEarnings;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceElevated,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppColors.success.withValues(alpha: 0.16),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.account_balance_wallet_rounded,
+              color: AppColors.success,
+              size: 18,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            AppStrings.driverDashboardEarningsAccount,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          Text(
+            AppStrings.driverDashboardEarningsAccountSubtitle,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            '$balance FCFA',
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.w800,
+              fontSize: 22,
+            ),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: onSeeEarnings,
+              child: Text(AppStrings.driverDashboardSeeEarnings),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MapControlButton extends StatelessWidget {
+  const _MapControlButton({required this.icon, required this.onTap});
+
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.surfaceElevated,
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Icon(icon, color: AppColors.textPrimary, size: 20),
+        ),
+      ),
+    );
+  }
+}
+
+class _WaitingForRequestsBar extends StatelessWidget {
+  const _WaitingForRequestsBar({
+    required this.online,
+    required this.canToggle,
+    required this.onChanged,
+  });
+
+  final bool online;
+  final bool canToggle;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceElevated,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.accent.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.watch_later_outlined, color: AppColors.accent),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  online
+                      ? AppStrings.driverDashboardWaitingTitle
+                      : AppStrings.driverOffline,
+                  style: const TextStyle(
+                    color: AppColors.accent,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  AppStrings.driverDashboardWaitingSubtitle,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: online,
+            activeThumbColor: AppColors.accent,
+            onChanged: canToggle ? onChanged : null,
+          ),
+        ],
       ),
     );
   }
@@ -448,11 +843,11 @@ class _RideOfferCard extends StatelessWidget {
       stream: uid == null
           ? null
           : FirebaseFirestore.instance
-              .collection('ride_requests')
-              .where('offeredUid', isEqualTo: uid)
-              .where('status', isEqualTo: RideStatus.searching.firestoreValue)
-              .limit(1)
-              .snapshots(),
+                .collection('ride_requests')
+                .where('offeredUid', isEqualTo: uid)
+                .where('status', isEqualTo: RideStatus.searching.firestoreValue)
+                .limit(1)
+                .snapshots(),
       builder: (context, snapshot) {
         final docs = snapshot.data?.docs ?? [];
         if (docs.isEmpty) {
@@ -493,7 +888,9 @@ class _RideOfferCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  request.clientName.isNotEmpty ? request.clientName : AppStrings.driverClient,
+                  request.clientName.isNotEmpty
+                      ? request.clientName
+                      : AppStrings.driverClient,
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 12),
@@ -573,7 +970,8 @@ class _OfferCountdownState extends State<_OfferCountdown> {
     final seconds = remaining > 0 ? remaining : 0;
     return Text(
       '${AppStrings.driverOfferExpiresIn} ${seconds}s',
-      style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.accentBright),
+      style: Theme.of(context).textTheme.bodyMedium
+          ?.copyWith(color: AppColors.accentBright),
     );
   }
 }
@@ -622,7 +1020,9 @@ class _ActiveRide extends StatelessWidget {
                   const SizedBox(height: 20),
                   ElevatedButton(
                     onPressed: onUnavailable,
-                    child: const Text(AppStrings.driverActiveRideUnavailableCta),
+                    child: const Text(
+                      AppStrings.driverActiveRideUnavailableCta,
+                    ),
                   ),
                 ],
               ),
