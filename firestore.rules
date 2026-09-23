@@ -178,5 +178,13 @@ service cloud.firestore {
 
       allow update, delete: if false;
     }
+
+    // Réglages de l'app (grille tarifaire `app_config/pricing`) : lisibles par
+    // tout utilisateur connecté (l'app calcule le prix de la course), modifiables
+    // uniquement côté admin (Admin SDK, qui ignore ces règles).
+    match /app_config/{docId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
   }
 }

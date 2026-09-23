@@ -25,11 +25,24 @@ class _PaymentScreenState extends State<PaymentScreen> {
   bool _submitting = false;
   String? _error;
 
-  late final int _amount = estimateFareFcfa(
-    pickup: widget.ride.pickup,
-    destination: widget.ride.destination,
-    vehicleType: widget.ride.vehicleType,
-  );
+  // Tant que la grille tarifaire n'est pas chargée (au plus 5 s), le bouton de
+  // paiement reste inactif : on ne facture jamais un montant provisoire.
+  FarePricing? _pricing;
+
+  int get _amount => estimateFareFcfa(
+        pickup: widget.ride.pickup,
+        destination: widget.ride.destination,
+        vehicleType: widget.ride.vehicleType,
+        pricing: _pricing ?? FarePricing.defaults,
+      );
+
+  @override
+  void initState() {
+    super.initState();
+    loadFarePricing().then((p) {
+      if (mounted) setState(() => _pricing = p);
+    });
+  }
 
   @override
   void dispose() {
@@ -204,7 +217,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _submitting ? null : _pay,
+                  onPressed: (_submitting || _pricing == null) ? null : _pay,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.accent,
                     foregroundColor: AppColors.background,
