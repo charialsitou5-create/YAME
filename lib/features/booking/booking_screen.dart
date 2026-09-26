@@ -397,12 +397,12 @@ class _BookingScreenState extends State<BookingScreen> {
           ),
 
           if (_locating)
-            const Positioned(
-              top: 56,
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 12,
               left: 0,
               right: 0,
               child: Center(
-                child: _StatusPill(
+                child: const _StatusPill(
                   icon: Icons.my_location,
                   text: AppStrings.bookingLocatingMe,
                 ),
@@ -410,7 +410,7 @@ class _BookingScreenState extends State<BookingScreen> {
             )
           else if (_locationError != null)
             Positioned(
-              top: 56,
+              top: MediaQuery.of(context).padding.top + 12,
               left: 24,
               right: 24,
               child: Center(
@@ -421,7 +421,7 @@ class _BookingScreenState extends State<BookingScreen> {
               ),
             ),
           Positioned(
-            top: 56,
+            top: MediaQuery.of(context).padding.top + 12,
             right: 16,
             child: FloatingActionButton.small(
               heroTag: 'locate-me',
@@ -432,7 +432,7 @@ class _BookingScreenState extends State<BookingScreen> {
             ),
           ),
           Positioned(
-            top: 56,
+            top: MediaQuery.of(context).padding.top + 12,
             left: 16,
             child: FloatingActionButton.small(
               heroTag: 'logout',
@@ -567,73 +567,80 @@ class _BookingPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
-      decoration: const BoxDecoration(
-        color: AppColors.surfaceElevated,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.65,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _LocationTile(
-            icon: Icons.circle,
-            iconColor: AppColors.success,
-            label: AppStrings.bookingPickupLabel,
-            value: pickupAddress,
-            hint: AppStrings.bookingPickupHint,
-            selected: pickMode == _PickMode.pickup,
-            hasPoint: hasPickup,
-            onTap: () => onModeChanged(_PickMode.pickup),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+        decoration: const BoxDecoration(
+          color: AppColors.surfaceElevated,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _LocationTile(
+                icon: Icons.circle,
+                iconColor: AppColors.success,
+                label: AppStrings.bookingPickupLabel,
+                value: pickupAddress,
+                hint: AppStrings.bookingPickupHint,
+                selected: pickMode == _PickMode.pickup,
+                hasPoint: hasPickup,
+                onTap: () => onModeChanged(_PickMode.pickup),
+              ),
+              const SizedBox(height: 10),
+              _LocationTile(
+                icon: Icons.location_on,
+                iconColor: AppColors.accent,
+                label: AppStrings.bookingDestinationLabel,
+                value: destinationAddress,
+                hint: AppStrings.bookingDestinationHint,
+                selected: pickMode == _PickMode.destination,
+                hasPoint: hasDestination,
+                onTap: () => onModeChanged(_PickMode.destination),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: VehicleType.values.map((type) {
+                  final selected = type == vehicleType;
+                  return Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                        right: type == VehicleType.values.first ? 10 : 0,
+                      ),
+                      child: _VehicleTypeCard(
+                        type: type,
+                        selected: selected,
+                        onTap: () => onVehicleChanged(type),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 14),
+              _RecipientRow(
+                recipient: recipient,
+                onEdit: onEditRecipient,
+                onClear: onClearRecipient,
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: (canRequest && !submitting) ? onRequest : null,
+                child: submitting
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text(AppStrings.bookingCta),
+              ),
+            ],
           ),
-          const SizedBox(height: 10),
-          _LocationTile(
-            icon: Icons.location_on,
-            iconColor: AppColors.accent,
-            label: AppStrings.bookingDestinationLabel,
-            value: destinationAddress,
-            hint: AppStrings.bookingDestinationHint,
-            selected: pickMode == _PickMode.destination,
-            hasPoint: hasDestination,
-            onTap: () => onModeChanged(_PickMode.destination),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: VehicleType.values.map((type) {
-              final selected = type == vehicleType;
-              return Expanded(
-                child: Padding(
-                  padding: EdgeInsets.only(
-                    right: type == VehicleType.values.first ? 10 : 0,
-                  ),
-                  child: _VehicleTypeCard(
-                    type: type,
-                    selected: selected,
-                    onTap: () => onVehicleChanged(type),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 14),
-          _RecipientRow(
-            recipient: recipient,
-            onEdit: onEditRecipient,
-            onClear: onClearRecipient,
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: (canRequest && !submitting) ? onRequest : null,
-            child: submitting
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text(AppStrings.bookingCta),
-          ),
-        ],
+        ),
       ),
     );
   }

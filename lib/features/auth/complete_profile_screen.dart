@@ -44,7 +44,8 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
       });
 
       if (!mounted) return;
-      Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.home, (route) => false);
+      Navigator.of(context)
+          .pushNamedAndRemoveUntil(AppRoutes.home, (route) => false);
     } catch (_) {
       setState(() => _errorMessage = AppStrings.errorGeneric);
     } finally {
@@ -57,54 +58,67 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  AppStrings.completeProfileTitle,
-                  style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 28),
+        child: LayoutBuilder(
+          builder: (context, constraints) => SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: constraints.maxHeight - 48,
+              ),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      AppStrings.completeProfileTitle,
+                      style: Theme.of(context).textTheme.displayLarge
+                          ?.copyWith(fontSize: 28),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      AppStrings.completeProfileSubtitle,
+                      style: Theme.of(context).textTheme.bodyLarge,
+                    ),
+                    const SizedBox(height: 28),
+                    TextFormField(
+                      controller: _phoneController,
+                      autofocus: true,
+                      keyboardType: TextInputType.phone,
+                      decoration: const InputDecoration(
+                        hintText: AppStrings.fieldPhone,
+                        prefixIcon: Icon(Icons.call_outlined),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty)
+                          return AppStrings.errorRequired;
+                        if (value.trim().length < 8)
+                          return AppStrings.errorPhoneInvalid;
+                        return null;
+                      },
+                    ),
+                    if (_errorMessage != null) ...[
+                      const SizedBox(height: 14),
+                      Text(
+                        _errorMessage!,
+                        style: const TextStyle(color: AppColors.error),
+                      ),
+                    ],
+                    const SizedBox(height: 24),
+                    ElevatedButton(
+                      onPressed: _submitting ? null : _submit,
+                      child: _submitting
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text(AppStrings.completeProfileCta),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 10),
-                Text(
-                  AppStrings.completeProfileSubtitle,
-                  style: Theme.of(context).textTheme.bodyLarge,
-                ),
-                const SizedBox(height: 28),
-                TextFormField(
-                  controller: _phoneController,
-                  autofocus: true,
-                  keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(
-                    hintText: AppStrings.fieldPhone,
-                    prefixIcon: Icon(Icons.call_outlined),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) return AppStrings.errorRequired;
-                    if (value.trim().length < 8) return AppStrings.errorPhoneInvalid;
-                    return null;
-                  },
-                ),
-                if (_errorMessage != null) ...[
-                  const SizedBox(height: 14),
-                  Text(_errorMessage!, style: const TextStyle(color: AppColors.error)),
-                ],
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: _submitting ? null : _submit,
-                  child: _submitting
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text(AppStrings.completeProfileCta),
-                ),
-              ],
+              ),
             ),
           ),
         ),

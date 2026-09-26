@@ -197,6 +197,11 @@ class AppStrings {
   static const driverDestination = 'Destination';
   static const driverComplete = 'Terminer la course';
   static const driverCancelRide = 'Annuler la course';
+  static const driverCancelConfirmTitle = 'Annuler cette course ?';
+  static const driverCancelConfirmBody =
+      'Le client sera prévenu que vous annulez sa course.';
+  static const driverCancelConfirmKeep = 'Non, continuer';
+  static const driverCancelConfirmYes = 'Oui, annuler';
   static const driverRequestTaken =
       'Cette course vient d\'être prise par un autre chauffeur.';
   static const driverActiveRideUnavailable =

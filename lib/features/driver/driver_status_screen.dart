@@ -25,59 +25,70 @@ class DriverStatusScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            children: [
-              Align(
-                alignment: Alignment.centerRight,
-                child: IconButton(
-                  onPressed: () => _logout(context),
-                  icon: const Icon(Icons.logout_rounded),
-                  tooltip: AppStrings.logout,
+        child: LayoutBuilder(
+          builder: (context, constraints) => SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: constraints.maxHeight - 48,
+              ),
+              child: IntrinsicHeight(
+                child: Column(
+                  children: [
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: IconButton(
+                        onPressed: () => _logout(context),
+                        icon: const Icon(Icons.logout_rounded),
+                        tooltip: AppStrings.logout,
+                      ),
+                    ),
+                    const Spacer(),
+                    Container(
+                      width: 84,
+                      height: 84,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceElevated,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: rejected
+                              ? AppColors.error.withValues(alpha: 0.4)
+                              : AppColors.border,
+                        ),
+                      ),
+                      child: Icon(
+                        rejected
+                            ? Icons.error_outline_rounded
+                            : Icons.hourglass_top_rounded,
+                        size: 36,
+                        color: rejected
+                            ? AppColors.error
+                            : AppColors.accentBright,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      rejected
+                          ? AppStrings.driverRejectedTitle
+                          : AppStrings.driverPendingTitle,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.displayLarge
+                          ?.copyWith(fontSize: 22),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      rejected
+                          ? AppStrings.driverRejectedBody
+                          : AppStrings.driverPendingBody,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyLarge,
+                    ),
+                    const Spacer(),
+                  ],
                 ),
               ),
-              const Spacer(),
-              Container(
-                width: 84,
-                height: 84,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceElevated,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: rejected
-                        ? AppColors.error.withValues(alpha: 0.4)
-                        : AppColors.border,
-                  ),
-                ),
-                child: Icon(
-                  rejected
-                      ? Icons.error_outline_rounded
-                      : Icons.hourglass_top_rounded,
-                  size: 36,
-                  color: rejected ? AppColors.error : AppColors.accentBright,
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                rejected
-                    ? AppStrings.driverRejectedTitle
-                    : AppStrings.driverPendingTitle,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.displayLarge
-                    ?.copyWith(fontSize: 22),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                rejected
-                    ? AppStrings.driverRejectedBody
-                    : AppStrings.driverPendingBody,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyLarge,
-              ),
-              const Spacer(),
-            ],
+            ),
           ),
         ),
       ),

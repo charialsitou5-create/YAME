@@ -34,83 +34,96 @@ class OnboardingScreen extends StatelessWidget {
             ),
           ),
           SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 24),
-                  Text.rich(
-                    TextSpan(
+            child: LayoutBuilder(
+              builder: (context, constraints) => SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: IntrinsicHeight(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const TextSpan(text: 'Bienvenue\nchez '),
-                        TextSpan(
-                          text: 'Yame',
-                          style: TextStyle(color: AppColors.accentBright),
+                        const SizedBox(height: 24),
+                        Text.rich(
+                          TextSpan(
+                            children: [
+                              const TextSpan(text: 'Bienvenue\nchez '),
+                              TextSpan(
+                                text: 'Yame',
+                                style: TextStyle(color: AppColors.accentBright),
+                              ),
+                              const TextSpan(text: ' !'),
+                            ],
+                          ),
+                          style: Theme.of(context).textTheme.displayLarge
+                              ?.copyWith(fontSize: 42),
                         ),
-                        const TextSpan(text: ' !'),
+                        const SizedBox(height: 12),
+                        Text(
+                          AppStrings.slogan,
+                          style: Theme.of(context).textTheme.bodyLarge,
+                        ),
+                        const Spacer(),
+                        Text(
+                          'Que souhaitez-vous faire ?',
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                        const SizedBox(height: 16),
+                        _RoleCard(
+                          label: AppStrings.roleClient,
+                          description: AppStrings.roleClientDescription,
+                          icon: Icons.person_rounded,
+                          onTap: () =>
+                              Navigator.of(context)
+                                  .pushNamed(AppRoutes.signup, arguments: null),
+                        ),
+                        const SizedBox(height: 14),
+                        _RoleCard(
+                          label: AppStrings.roleDriverCar,
+                          description: AppStrings.roleDriverCarDescription,
+                          icon: Icons.directions_car_filled_rounded,
+                          onTap: () => Navigator.of(context).pushNamed(
+                            AppRoutes.signup,
+                            arguments: VehicleType.car,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        _RoleCard(
+                          label: AppStrings.roleDriverMoto,
+                          description: AppStrings.roleDriverMotoDescription,
+                          icon: Icons.two_wheeler_rounded,
+                          onTap: () => Navigator.of(context).pushNamed(
+                            AppRoutes.signup,
+                            arguments: VehicleType.moto,
+                          ),
+                        ),
+                        const SizedBox(height: 22),
+                        Center(
+                          child: RichText(
+                            text: TextSpan(
+                              style: Theme.of(context).textTheme.bodyLarge,
+                              children: [
+                                const TextSpan(text: 'Déjà un compte ? '),
+                                TextSpan(
+                                  text: 'Se connecter',
+                                  style: const TextStyle(
+                                    color: AppColors.accentBright,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                  recognizer: TapGestureRecognizer()
+                                    ..onTap = () =>
+                                        Navigator.of(context)
+                                            .pushNamed(AppRoutes.login),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 28),
                       ],
                     ),
-                    style: Theme.of(
-                      context,
-                    ).textTheme.displayLarge?.copyWith(fontSize: 42),
                   ),
-                  const SizedBox(height: 12),
-                  Text(AppStrings.slogan, style: Theme.of(context).textTheme.bodyLarge),
-                  const Spacer(),
-                  Text(
-                    'Que souhaitez-vous faire ?',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 16),
-                  _RoleCard(
-                    label: AppStrings.roleClient,
-                    description: AppStrings.roleClientDescription,
-                    icon: Icons.person_rounded,
-                    onTap: () => Navigator.of(
-                      context,
-                    ).pushNamed(AppRoutes.signup, arguments: null),
-                  ),
-                  const SizedBox(height: 14),
-                  _RoleCard(
-                    label: AppStrings.roleDriverCar,
-                    description: AppStrings.roleDriverCarDescription,
-                    icon: Icons.directions_car_filled_rounded,
-                    onTap: () => Navigator.of(
-                      context,
-                    ).pushNamed(AppRoutes.signup, arguments: VehicleType.car),
-                  ),
-                  const SizedBox(height: 14),
-                  _RoleCard(
-                    label: AppStrings.roleDriverMoto,
-                    description: AppStrings.roleDriverMotoDescription,
-                    icon: Icons.two_wheeler_rounded,
-                    onTap: () => Navigator.of(
-                      context,
-                    ).pushNamed(AppRoutes.signup, arguments: VehicleType.moto),
-                  ),
-                  const SizedBox(height: 22),
-                  Center(
-                    child: RichText(
-                      text: TextSpan(
-                        style: Theme.of(context).textTheme.bodyLarge,
-                        children: [
-                          const TextSpan(text: 'Déjà un compte ? '),
-                          TextSpan(
-                            text: 'Se connecter',
-                            style: const TextStyle(
-                              color: AppColors.accentBright,
-                              fontWeight: FontWeight.w700,
-                            ),
-                            recognizer: TapGestureRecognizer()
-                              ..onTap = () => Navigator.of(context).pushNamed(AppRoutes.login),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-                ],
+                ),
               ),
             ),
           ),
@@ -149,7 +162,10 @@ class _RoleCard extends StatelessWidget {
                 width: 52,
                 height: 52,
                 alignment: Alignment.center,
-                decoration: const BoxDecoration(color: AppColors.accent, shape: BoxShape.circle),
+                decoration: const BoxDecoration(
+                  color: AppColors.accent,
+                  shape: BoxShape.circle,
+                ),
                 child: Icon(icon, color: AppColors.background),
               ),
               const SizedBox(width: 16),
@@ -168,12 +184,18 @@ class _RoleCard extends StatelessWidget {
                     const SizedBox(height: 3),
                     Text(
                       description,
-                      style: const TextStyle(color: AppColors.lightTextSecondary, fontSize: 13.5),
+                      style: const TextStyle(
+                        color: AppColors.lightTextSecondary,
+                        fontSize: 13.5,
+                      ),
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.arrow_forward_rounded, color: AppColors.lightTextPrimary),
+              const Icon(
+                Icons.arrow_forward_rounded,
+                color: AppColors.lightTextPrimary,
+              ),
             ],
           ),
         ),
