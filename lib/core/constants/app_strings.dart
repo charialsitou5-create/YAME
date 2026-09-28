@@ -6,7 +6,7 @@ class AppStrings {
   static const slogan = 'Votre trajet, autrement.';
 
   // Sélection de profil
-  static const roleClient = 'Client';
+  static const roleClient = 'Particulier';
   static const roleClientDescription =
       'Réservez vos courses en quelques secondes';
   static const roleDriverCar = 'Chauffeur Voiture';
@@ -158,13 +158,7 @@ class AppStrings {
   static const paymentMethodCard = 'Carte bancaire';
   static const paymentMethodMobileMoney = 'Mobile Money';
   static const paymentSecurityNotice =
-      'Pour que le chauffeur reçoive le paiement, veuillez saisir son identifiant Yame.';
-  static const paymentDriverIdLabel = 'Identifiant Yame du chauffeur';
-  static const paymentDriverIdHint = 'Ex : YAME12345';
-  static const paymentDriverIdInfo =
-      'Vous pouvez obtenir l\'identifiant auprès du chauffeur avant le paiement.';
-  static const paymentErrorDriverIdRequired =
-      'Veuillez saisir l\'identifiant du chauffeur.';
+      'Paiement sécurisé, directement lié à votre course.';
   static const paymentError = 'Paiement impossible, réessayez.';
   static const paymentSuccess = 'Paiement effectué avec succès !';
   static const bookingRequestError =
@@ -192,14 +186,14 @@ class AppStrings {
   static const driverDecline = 'Refuser';
   static const driverOfferExpiresIn = 'Répondez avant';
   static const driverAcceptedRide = 'Course en cours';
-  static const driverClient = 'Client';
+  static const driverClient = 'Particulier';
   static const driverPickup = 'Départ';
   static const driverDestination = 'Destination';
   static const driverComplete = 'Terminer la course';
   static const driverCancelRide = 'Annuler la course';
   static const driverCancelConfirmTitle = 'Annuler cette course ?';
   static const driverCancelConfirmBody =
-      'Le client sera prévenu que vous annulez sa course.';
+      'Le particulier sera prévenu que vous annulez sa course.';
   static const driverCancelConfirmKeep = 'Non, continuer';
   static const driverCancelConfirmYes = 'Oui, annuler';
   static const driverRequestTaken =
@@ -227,11 +221,11 @@ class AppStrings {
   static const driverDashboardEarningsAccount = 'Compte Chauffeur';
   static const driverDashboardEarningsAccountSubtitle = '(Argent à retirer)';
   static const driverDashboardEarningsDescription =
-      'Ce compte est réservé au chauffeur. Il vous permet de recevoir directement le solde après paiement par le client suite à la course.';
+      'Ce compte est réservé au chauffeur. Il vous permet de recevoir directement le solde après paiement par le particulier suite à la course.';
   static const driverDashboardSeeEarnings = 'Voir mes gains';
   static const driverDashboardWaitingTitle = 'En attente des commandes';
   static const driverDashboardWaitingSubtitle =
-      'Restez connecté, les clients vous trouvent en temps réel.';
+      'Restez connecté, les particuliers vous trouvent en temps réel.';
 
   // Contact passager (chauffeur)
   static const contactPassengerTitle = 'Contact passager';
@@ -241,7 +235,7 @@ class AppStrings {
   static const contactPassengerNoticeRecipient =
       'Cette course a été commandée pour le passager. Vous pouvez le contacter pour plus d\'informations.';
   static const contactPassengerNoticeRequester =
-      'Cette course a été commandée pour quelqu\'un d\'autre. Le client a demandé à être contacté à sa place.';
+      'Cette course a été commandée pour quelqu\'un d\'autre. Le particulier a demandé à être contacté à sa place.';
   static const contactPassengerInstructions = 'Instructions';
   static const contactPassengerCallError = 'Impossible de lancer l\'appel.';
   static const contactPassengerMessageError =
@@ -283,13 +277,13 @@ class AppStrings {
   static const driverIntroCta = 'Suivant';
 
   // Profil — devenir chauffeur / bascule de mode
-  static const profileBecomeDriverTitle = 'Devenez chauffeur';
+  static const profileBecomeDriverTitle = 'Devenir chauffeur';
   static const profileBecomeDriverSubtitle =
-      'Gagnez de l\'argent avec Yame en plus de vos trajets.';
+      'Une option pour aussi transporter des particuliers, si vous le souhaitez.';
   static const profileBecomeDriverCta = 'Devenir chauffeur';
   static const profileBecomeDriverChooseVehicle = 'Choisissez votre véhicule';
   static const profileSwitchToDriver = 'Passer en mode chauffeur';
-  static const profileSwitchToClient = 'Passer en mode client';
+  static const profileSwitchToClient = 'Passer en mode particulier';
   static const profileSwitchBlocked =
       'Terminez votre course en cours avant de changer de mode.';
 

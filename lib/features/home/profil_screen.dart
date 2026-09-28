@@ -76,10 +76,6 @@ class ProfilScreen extends StatelessWidget {
                 email: user?.email,
               ),
               const SizedBox(height: 24),
-              if (uid != null && user != null) ...[
-                _DriverSection(uid: uid, user: user),
-                const SizedBox(height: 16),
-              ],
               Text(
                 AppStrings.profileActivities,
                 style: Theme.of(context).textTheme.titleLarge,
@@ -182,6 +178,10 @@ class ProfilScreen extends StatelessWidget {
                       subtitle: AppStrings.profileAboutVersion,
                       onTap: () => _showAbout(context),
                     ),
+                    if (uid != null && user != null) ...[
+                      const _RowDivider(),
+                      _DriverSection(uid: uid, user: user),
+                    ],
                   ],
                 ),
               ),
@@ -519,37 +519,23 @@ class _DriverSection extends StatelessWidget {
     });
   }
 
+  void _showSnack(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
   @override
   Widget build(BuildContext context) {
     final vehicleType = user.driverVehicleType;
 
+    // Simple option parmi les autres réglages, pas une bannière incitative :
+    // devenir chauffeur reste un choix qu'on va chercher, pas quelque chose
+    // qu'on pousse en avant sur le profil.
     if (vehicleType == null) {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              AppStrings.profileBecomeDriverTitle,
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              AppStrings.profileBecomeDriverSubtitle,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 14),
-            ElevatedButton(
-              onPressed: () => _pickVehicleType(context),
-              child: const Text(AppStrings.profileBecomeDriverCta),
-            ),
-          ],
-        ),
+      return _SettingsRow(
+        icon: Icons.directions_car_filled_rounded,
+        title: AppStrings.profileBecomeDriverTitle,
+        subtitle: AppStrings.profileBecomeDriverSubtitle,
+        onTap: () => _pickVehicleType(context),
       );
     }
 
@@ -559,19 +545,17 @@ class _DriverSection extends StatelessWidget {
         final status = snapshot.data?.data()?['status'] as String? ?? 'pending_verification';
 
         if (status != 'approved') {
-          return Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Text(
-              status == 'rejected'
-                  ? AppStrings.driverRejectedTitle
-                  : AppStrings.driverPendingTitle,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
+          final title = status == 'rejected'
+              ? AppStrings.driverRejectedTitle
+              : AppStrings.driverPendingTitle;
+          final body = status == 'rejected'
+              ? AppStrings.driverRejectedBody
+              : AppStrings.driverPendingBody;
+          return _SettingsRow(
+            icon: Icons.directions_car_filled_rounded,
+            title: title,
+            subtitle: body,
+            onTap: () => _showSnack(context, body),
           );
         }
 
@@ -583,29 +567,13 @@ class _DriverSection extends StatelessWidget {
             ? AppStrings.profileSwitchToDriver
             : AppStrings.profileSwitchToClient;
 
-        return Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              ElevatedButton(
-                onPressed: blocked ? null : () => _switchMode(targetMode),
-                child: Text(label),
-              ),
-              if (blocked) ...[
-                const SizedBox(height: 8),
-                Text(
-                  AppStrings.profileSwitchBlocked,
-                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 12.5),
-                ),
-              ],
-            ],
-          ),
+        return _SettingsRow(
+          icon: Icons.sync_alt_rounded,
+          title: label,
+          subtitle: blocked ? AppStrings.profileSwitchBlocked : null,
+          onTap: () => blocked
+              ? _showSnack(context, AppStrings.profileSwitchBlocked)
+              : _switchMode(targetMode),
         );
       },
     );

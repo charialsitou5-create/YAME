@@ -232,6 +232,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
               );
             }
             final balance = snapshot.data?.data()?['balance'] as int? ?? 0;
+            final earningsBalance = snapshot.data?.data()?['earningsBalance'] as int? ?? 0;
             final hasBalance = balance > 0;
 
             if (_online && !hasBalance && _activeRideId == null) {
@@ -405,7 +406,16 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: _EarningsAccountCard(
+                          balance: earningsBalance,
+                          onSeeEarnings: () => ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text(AppStrings.socialAuthComingSoon)),
+                          ),
+                        ),
+                      ),
                       const SizedBox(height: 16),
                       _WaitingForRequestsBar(
                         online: _online,
@@ -605,6 +615,91 @@ class _RechargeAccountCard extends StatelessWidget {
               child: const FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(AppStrings.driverDashboardRecharge),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EarningsAccountCard extends StatelessWidget {
+  const _EarningsAccountCard({required this.balance, required this.onSeeEarnings});
+
+  final int balance;
+  final VoidCallback onSeeEarnings;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(
+              color: AppColors.accent,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.savings_outlined,
+              color: AppColors.background,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '${AppStrings.driverDashboardEarningsAccount} '
+                  '${AppStrings.driverDashboardEarningsAccountSubtitle}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    '$balance FCFA',
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 24,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            child: OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.accent,
+                side: const BorderSide(color: AppColors.accent),
+                minimumSize: const Size(0, 48),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+              ),
+              onPressed: onSeeEarnings,
+              child: const FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(AppStrings.driverDashboardSeeEarnings),
               ),
             ),
           ),

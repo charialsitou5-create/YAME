@@ -137,14 +137,11 @@ service cloud.firestore {
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
             ['rating', 'ratingComment', 'ratingPunctuality', 'ratingDriving', 'ratingCourtesy', 'ratingCleanliness']
           ))
-        ||
-        // le client paie sa course une fois celle-ci terminée
-        (resource.data.status == 'completed'
-          && resource.data.clientUid == request.auth.uid
-          && request.resource.data.status == 'completed'
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
-            ['paymentStatus', 'paymentMethod', 'paymentAmount', 'paymentDriverId']
-          ))
+        // Le paiement d'une course n'est plus écrit par le client : il passe
+        // par yame-admin/api/rides/pay (Admin SDK, contourne ces règles), qui
+        // recalcule le montant côté serveur et crédite le chauffeur — voir
+        // lib/services/ridePayment.ts. Avant, un client pouvait se déclarer
+        // payé pour n'importe quel montant en écrivant directement ici.
       );
 
       allow delete: if false;

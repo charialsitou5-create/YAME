@@ -1,12 +1,10 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_strings.dart';
 import '../../core/fare.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/ride_request.dart';
-
-enum _PaymentMethod { card, mobileMoney }
+import '../../services/payment_service.dart';
 
 /// Paiement de la course — écran clair, comme la notation, distinct du
 /// thème sombre du reste de l'application.
@@ -20,8 +18,7 @@ class PaymentScreen extends StatefulWidget {
 }
 
 class _PaymentScreenState extends State<PaymentScreen> {
-  final _driverIdController = TextEditingController();
-  _PaymentMethod _method = _PaymentMethod.card;
+  RidePaymentMethod _method = RidePaymentMethod.card;
   bool _submitting = false;
   String? _error;
 
@@ -44,34 +41,21 @@ class _PaymentScreenState extends State<PaymentScreen> {
     });
   }
 
-  @override
-  void dispose() {
-    _driverIdController.dispose();
-    super.dispose();
-  }
-
   Future<void> _pay() async {
-    if (_driverIdController.text.trim().isEmpty) {
-      setState(() => _error = AppStrings.paymentErrorDriverIdRequired);
-      return;
-    }
-
     setState(() {
       _submitting = true;
       _error = null;
     });
 
     try {
-      await FirebaseFirestore.instance.collection('ride_requests').doc(widget.ride.id).update({
-        'paymentStatus': 'paid',
-        'paymentMethod': _method == _PaymentMethod.card ? 'card' : 'mobile_money',
-        'paymentAmount': _amount,
-        'paymentDriverId': _driverIdController.text.trim(),
-      });
+      await PaymentService.pay(rideId: widget.ride.id!, method: _method);
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(AppStrings.paymentSuccess)));
       Navigator.of(context).pop(true);
+    } on RidePaymentException catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.message);
     } catch (_) {
       if (!mounted) return;
       setState(() => _error = AppStrings.paymentError);
@@ -132,15 +116,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     _MethodRow(
                       icon: Icons.credit_card_rounded,
                       label: AppStrings.paymentMethodCard,
-                      selected: _method == _PaymentMethod.card,
-                      onTap: () => setState(() => _method = _PaymentMethod.card),
+                      selected: _method == RidePaymentMethod.card,
+                      onTap: () => setState(() => _method = RidePaymentMethod.card),
                     ),
                     const Divider(height: 1, color: AppColors.lightBorder),
                     _MethodRow(
                       icon: Icons.smartphone_rounded,
                       label: AppStrings.paymentMethodMobileMoney,
-                      selected: _method == _PaymentMethod.mobileMoney,
-                      onTap: () => setState(() => _method = _PaymentMethod.mobileMoney),
+                      selected: _method == RidePaymentMethod.mobileMoney,
+                      onTap: () => setState(() => _method = RidePaymentMethod.mobileMoney),
                     ),
                   ],
                 ),
@@ -166,53 +150,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 20),
-              const Text(
-                AppStrings.paymentDriverIdLabel,
-                style: TextStyle(color: AppColors.lightTextPrimary, fontWeight: FontWeight.w700, fontSize: 15),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: _driverIdController,
-                textCapitalization: TextCapitalization.characters,
-                style: const TextStyle(color: AppColors.lightTextPrimary),
-                decoration: InputDecoration(
-                  hintText: AppStrings.paymentDriverIdHint,
-                  hintStyle: const TextStyle(color: AppColors.lightTextSecondary),
-                  filled: true,
-                  fillColor: AppColors.lightSurface,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(color: AppColors.lightBorder),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(color: AppColors.lightBorder),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(color: AppColors.accent),
-                  ),
-                ),
-              ),
               if (_error != null) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: 16),
                 Text(_error!, style: const TextStyle(color: AppColors.error)),
               ],
-              const SizedBox(height: 12),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.info_outline_rounded, size: 18, color: AppColors.lightTextSecondary),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      AppStrings.paymentDriverIdInfo,
-                      style: const TextStyle(color: AppColors.lightTextSecondary, fontSize: 12.5),
-                    ),
-                  ),
-                ],
-              ),
               const SizedBox(height: 28),
               SizedBox(
                 width: double.infinity,
