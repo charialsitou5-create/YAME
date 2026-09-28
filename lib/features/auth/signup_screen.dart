@@ -77,6 +77,32 @@ class _SignupScreenState extends State<SignupScreen> {
     }
   }
 
+  Future<void> _showModeConflictDialog(AppMode existingMode) {
+    final isDriver = existingMode == AppMode.driver;
+    return showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surfaceElevated,
+        title: Text(
+          isDriver
+              ? AppStrings.reconnectStillDriverTitle
+              : AppStrings.reconnectStillClientTitle,
+        ),
+        content: Text(
+          isDriver
+              ? AppStrings.reconnectStillDriverBody
+              : AppStrings.reconnectStillClientBody,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text(AppStrings.reconnectUnderstood),
+          ),
+        ],
+      ),
+    );
+  }
+
   String _messageForAuthError(FirebaseAuthException e) {
     switch (e.code) {
       case 'email-already-in-use':
@@ -93,11 +119,17 @@ class _SignupScreenState extends State<SignupScreen> {
   }
 
   Future<void> _signInWithGoogle() => _submitSocial(
-        () => SocialAuthService.signInWithGoogle(vehicleType: widget.vehicleType),
+        () => SocialAuthService.signInWithGoogle(
+          vehicleType: widget.vehicleType,
+          announceModeConflict: true,
+        ),
       );
 
   Future<void> _signInWithFacebook() => _submitSocial(
-        () => SocialAuthService.signInWithFacebook(vehicleType: widget.vehicleType),
+        () => SocialAuthService.signInWithFacebook(
+          vehicleType: widget.vehicleType,
+          announceModeConflict: true,
+        ),
       );
 
   Future<void> _submitSocial(
@@ -112,6 +144,11 @@ class _SignupScreenState extends State<SignupScreen> {
     try {
       final result = await signIn();
       if (!mounted || result == null) return;
+
+      if (result.conflictingMode != null) {
+        await _showModeConflictDialog(result.conflictingMode!);
+        if (!mounted) return;
+      }
 
       Navigator.of(context).pushNamedAndRemoveUntil(
         result.needsPhone ? AppRoutes.completeProfile : AppRoutes.home,

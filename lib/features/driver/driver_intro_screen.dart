@@ -5,6 +5,7 @@ import '../../core/constants/app_strings.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/vehicle_type.dart';
 import '../../routes/app_routes.dart';
+import '../home/profil_screen.dart';
 import 'vehicle_registration_wizard.dart';
 
 /// Écran affiché à un chauffeur (voiture ou moto) tant qu'il n'a pas
@@ -45,10 +46,26 @@ class DriverIntroScreen extends StatelessWidget {
                       children: [
                         Align(
                           alignment: Alignment.centerRight,
-                          child: IconButton(
-                            onPressed: () => _logout(context),
-                            icon: const Icon(Icons.logout_rounded),
-                            tooltip: AppStrings.logout,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                onPressed: () => Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => const Scaffold(
+                                      body: ProfilScreen(),
+                                    ),
+                                  ),
+                                ),
+                                icon: const Icon(Icons.person_outline_rounded),
+                                tooltip: AppStrings.navProfile,
+                              ),
+                              IconButton(
+                                onPressed: () => _logout(context),
+                                icon: const Icon(Icons.logout_rounded),
+                                tooltip: AppStrings.logout,
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(height: 12),

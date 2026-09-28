@@ -24,9 +24,19 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   // Tant que la grille tarifaire n'est pas chargée (au plus 5 s), le bouton de
   // paiement reste inactif : on ne facture jamais un montant provisoire.
+  // Sans effet si `widget.ride.price` est déjà connu (voir `_amount`).
   FarePricing? _pricing;
 
-  int get _amount => estimateFareFcfa(
+  /// Affiche le prix déjà annoncé au client à la commande (`ride.price`,
+  /// voir `booking_screen.dart`) plutôt que de le recalculer ici — sinon un
+  /// changement de grille tarifaire (`app_config/pricing`) pendant la course
+  /// ferait apparaître un montant différent de celui vu en commandant.
+  /// `null` seulement pour une course créée avant l'introduction de ce champ.
+  /// Dans tous les cas, ce n'est qu'un affichage : le montant réellement
+  /// facturé est toujours recalculé côté serveur par `yame-admin`.
+  int get _amount =>
+      widget.ride.price ??
+      estimateFareFcfa(
         pickup: widget.ride.pickup,
         destination: widget.ride.destination,
         vehicleType: widget.ride.vehicleType,
@@ -36,9 +46,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
   @override
   void initState() {
     super.initState();
-    loadFarePricing().then((p) {
-      if (mounted) setState(() => _pricing = p);
-    });
+    if (widget.ride.price == null) {
+      loadFarePricing().then((p) {
+        if (mounted) setState(() => _pricing = p);
+      });
+    }
   }
 
   Future<void> _pay() async {
@@ -158,7 +170,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: (_submitting || _pricing == null) ? null : _pay,
+                  onPressed:
+                      (_submitting || (widget.ride.price == null && _pricing == null))
+                          ? null
+                          : _pay,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.accent,
                     foregroundColor: AppColors.background,

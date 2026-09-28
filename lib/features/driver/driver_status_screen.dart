@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../core/constants/app_strings.dart';
 import '../../core/theme/app_colors.dart';
 import '../../routes/app_routes.dart';
+import '../home/profil_screen.dart';
 
 /// Affiché à la place de [DriverHomeScreen] tant que l'inscription du
 /// véhicule d'un chauffeur n'a pas été validée (ou a été refusée) par
@@ -37,10 +38,26 @@ class DriverStatusScreen extends StatelessWidget {
                   children: [
                     Align(
                       alignment: Alignment.centerRight,
-                      child: IconButton(
-                        onPressed: () => _logout(context),
-                        icon: const Icon(Icons.logout_rounded),
-                        tooltip: AppStrings.logout,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            onPressed: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const Scaffold(
+                                  body: ProfilScreen(),
+                                ),
+                              ),
+                            ),
+                            icon: const Icon(Icons.person_outline_rounded),
+                            tooltip: AppStrings.navProfile,
+                          ),
+                          IconButton(
+                            onPressed: () => _logout(context),
+                            icon: const Icon(Icons.logout_rounded),
+                            tooltip: AppStrings.logout,
+                          ),
+                        ],
                       ),
                     ),
                     const Spacer(),

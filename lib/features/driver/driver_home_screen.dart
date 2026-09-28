@@ -4,15 +4,19 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../core/constants/app_strings.dart';
+import '../../core/fare.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/ride_request.dart';
 import '../../models/vehicle_type.dart';
 import '../../routes/app_routes.dart';
 import '../../services/dispatch_response_service.dart';
 import '../../services/driver_tracking_service.dart';
+import '../../services/routing_service.dart';
+import '../home/profil_screen.dart';
 import '../support/report_issue_screen.dart';
 import 'contact_passenger_screen.dart';
 import 'recharge_screen.dart';
@@ -30,6 +34,7 @@ class DriverHomeScreen extends StatefulWidget {
     @visibleForTesting this.firestore,
     @visibleForTesting this.uid,
     @visibleForTesting this.trackingService,
+    @visibleForTesting this.routeFetcher,
   });
 
   final VehicleType vehicleType;
@@ -39,6 +44,12 @@ class DriverHomeScreen extends StatefulWidget {
   final FirebaseFirestore? firestore;
   final String? uid;
   final DriverTrackingService? trackingService;
+
+  /// Surcharge de [RoutingService.fetchRoute] pour les tests — sans elle,
+  /// un test avec une course active déclencherait un vrai appel réseau vers
+  /// le serveur OSRM public à chaque rendu de la carte.
+  final Future<RouteResult?> Function({required LatLng from, required LatLng to})?
+      routeFetcher;
 
   @override
   State<DriverHomeScreen> createState() => _DriverHomeScreenState();
@@ -56,6 +67,45 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
           ? null
           : FirebaseAuth.instance.currentUser?.uid);
   final _mapController = MapController();
+
+  RouteResult? _route;
+  LatLng? _routeOrigin;
+  DateTime? _routeFetchedAt;
+  bool _fetchingRoute = false;
+
+  /// Recalcule l'itinéraire réel (OSRM) vers le point de départ du client au
+  /// plus une fois toutes les 15s, ou si le chauffeur s'est déplacé de plus
+  /// de 30m depuis le dernier calcul — même logique que côté client (voir
+  /// `booking_screen.dart`), pour ne pas bombarder le serveur public à
+  /// chaque tick de position. Best-effort : un échec laisse simplement
+  /// l'ancien tracé affiché.
+  void _maybeFetchRoute(LatLng origin, LatLng destination) {
+    if (_fetchingRoute) return;
+    final now = DateTime.now();
+    final stale = _routeFetchedAt == null ||
+        now.difference(_routeFetchedAt!) > const Duration(seconds: 15);
+    final moved = _routeOrigin == null ||
+        Geolocator.distanceBetween(
+              origin.latitude,
+              origin.longitude,
+              _routeOrigin!.latitude,
+              _routeOrigin!.longitude,
+            ) >
+            30;
+    if (!stale && !moved) return;
+
+    _fetchingRoute = true;
+    final fetcher = widget.routeFetcher ?? RoutingService.fetchRoute;
+    fetcher(from: origin, to: destination).then((result) {
+      _fetchingRoute = false;
+      if (!mounted || result == null) return;
+      setState(() {
+        _route = result;
+        _routeOrigin = origin;
+        _routeFetchedAt = DateTime.now();
+      });
+    });
+  }
 
   @override
   void initState() {
@@ -168,7 +218,12 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
 
     if (!mounted) return;
     if (confirmed) {
-      setState(() => _activeRideId = id);
+      setState(() {
+        _activeRideId = id;
+        _route = null;
+        _routeOrigin = null;
+        _routeFetchedAt = null;
+      });
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text(AppStrings.driverRequestTaken)),
@@ -202,7 +257,33 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     }
     await batch.commit();
     if (!mounted) return;
-    setState(() => _activeRideId = null);
+    setState(() {
+      _activeRideId = null;
+      _route = null;
+      _routeOrigin = null;
+      _routeFetchedAt = null;
+    });
+  }
+
+  /// Fait avancer la course d'une étape (accepted → arrived → inProgress),
+  /// sans toucher au reste de la session chauffeur (contrairement à
+  /// `_endRide`) : la course reste active, `driverActiveRideId` inchangé.
+  /// L'ancien itinéraire est effacé pour que le prochain rendu recalcule
+  /// tout de suite vers la bonne cible (pickup → destination une fois à
+  /// bord) plutôt que d'afficher un tracé périmé jusqu'au prochain
+  /// déplacement du chauffeur.
+  Future<void> _advanceRide(RideStatus newStatus) async {
+    final id = _activeRideId;
+    if (id == null) return;
+    await _db.collection('ride_requests').doc(id).update({
+      'status': newStatus.firestoreValue,
+    });
+    if (!mounted) return;
+    setState(() {
+      _route = null;
+      _routeOrigin = null;
+      _routeFetchedAt = null;
+    });
   }
 
   @override
@@ -294,6 +375,17 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                                     Icons.report_problem_outlined,
                                   ),
                                   tooltip: AppStrings.reportTitle,
+                                ),
+                                IconButton(
+                                  onPressed: () => Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => const Scaffold(
+                                        body: ProfilScreen(),
+                                      ),
+                                    ),
+                                  ),
+                                  icon: const Icon(Icons.person_outline_rounded),
+                                  tooltip: AppStrings.navProfile,
                                 ),
                                 IconButton(
                                   onPressed: _logout,
@@ -430,9 +522,15 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                       ? _ActiveRide(
                           rideId: _activeRideId!,
                           onEnd: _endRide,
-                          onUnavailable: () =>
-                              setState(() => _activeRideId = null),
+                          onAdvance: _advanceRide,
+                          onUnavailable: () => setState(() {
+                            _activeRideId = null;
+                            _route = null;
+                            _routeOrigin = null;
+                            _routeFetchedAt = null;
+                          }),
                           firestore: _db,
+                          eta: _route?.duration,
                         )
                       : !hasBalance
                       ? const _BalanceRequiredNotice()
@@ -479,28 +577,161 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                                             .snapshots(),
                                         builder: (context, locSnap) {
                                           final data = locSnap.data?.data();
-                                          if (data == null ||
-                                              data['lat'] == null ||
-                                              data['lng'] == null) {
-                                            return const SizedBox.shrink();
+                                          LatLng? driverPos;
+                                          if (data != null &&
+                                              data['lat'] != null &&
+                                              data['lng'] != null) {
+                                            driverPos = LatLng(
+                                              (data['lat'] as num).toDouble(),
+                                              (data['lng'] as num).toDouble(),
+                                            );
                                           }
-                                          final pos = LatLng(
-                                            (data['lat'] as num).toDouble(),
-                                            (data['lng'] as num).toDouble(),
-                                          );
-                                          return MarkerLayer(
-                                            markers: [
-                                              Marker(
-                                                point: pos,
-                                                width: 40,
-                                                height: 40,
-                                                child: const Icon(
-                                                  Icons.directions_car_rounded,
-                                                  color: AppColors.accent,
-                                                  size: 28,
-                                                ),
-                                              ),
-                                            ],
+
+                                          final driverMarker = driverPos == null
+                                              ? null
+                                              : Marker(
+                                                  point: driverPos,
+                                                  width: 40,
+                                                  height: 40,
+                                                  child: const Icon(
+                                                    Icons.directions_car_rounded,
+                                                    color: AppColors.accent,
+                                                    size: 28,
+                                                  ),
+                                                );
+
+                                          if (_activeRideId == null) {
+                                            return MarkerLayer(
+                                              markers: [
+                                                if (driverMarker != null) driverMarker,
+                                              ],
+                                            );
+                                          }
+
+                                          return StreamBuilder<
+                                            DocumentSnapshot<Map<String, dynamic>>
+                                          >(
+                                            stream: _db
+                                                .collection('ride_requests')
+                                                .doc(_activeRideId)
+                                                .snapshots(),
+                                            builder: (context, rideSnap) {
+                                              final rideData = rideSnap.data?.data();
+                                              final pickupMap =
+                                                  rideData?['pickup'] as Map<String, dynamic>?;
+                                              final destinationMap =
+                                                  rideData?['destination'] as Map<String, dynamic>?;
+                                              final rideStatus = rideData?['status'] as String?;
+                                              final clientUid =
+                                                  rideData?['clientUid'] as String?;
+                                              LatLng? pickup;
+                                              if (pickupMap != null) {
+                                                pickup = LatLng(
+                                                  (pickupMap['lat'] as num).toDouble(),
+                                                  (pickupMap['lng'] as num).toDouble(),
+                                                );
+                                              }
+                                              LatLng? destination;
+                                              if (destinationMap != null) {
+                                                destination = LatLng(
+                                                  (destinationMap['lat'] as num).toDouble(),
+                                                  (destinationMap['lng'] as num).toDouble(),
+                                                );
+                                              }
+
+                                              // Avant l'arrivée : itinéraire vers le client.
+                                              // Une fois à bord : itinéraire vers la destination.
+                                              // "Arrivé" (entre les deux) : pas de tracé, ETA = 0.
+                                              if (driverPos != null &&
+                                                  rideStatus == RideStatus.accepted.firestoreValue &&
+                                                  pickup != null) {
+                                                _maybeFetchRoute(driverPos, pickup);
+                                              } else if (driverPos != null &&
+                                                  rideStatus == RideStatus.inProgress.firestoreValue &&
+                                                  destination != null) {
+                                                _maybeFetchRoute(driverPos, destination);
+                                              }
+
+                                              return StreamBuilder<
+                                                DocumentSnapshot<Map<String, dynamic>>
+                                              >(
+                                                stream: clientUid == null
+                                                    ? const Stream.empty()
+                                                    : _db
+                                                        .collection('users')
+                                                        .doc(clientUid)
+                                                        .collection('location')
+                                                        .doc('current')
+                                                        .snapshots(),
+                                                builder: (context, clientLocSnap) {
+                                                  final clientData =
+                                                      clientLocSnap.data?.data();
+                                                  LatLng? clientPos;
+                                                  if (clientData != null &&
+                                                      clientData['lat'] != null &&
+                                                      clientData['lng'] != null) {
+                                                    clientPos = LatLng(
+                                                      (clientData['lat'] as num).toDouble(),
+                                                      (clientData['lng'] as num).toDouble(),
+                                                    );
+                                                  }
+
+                                                  return Stack(
+                                                    children: [
+                                                      if (_route != null)
+                                                        PolylineLayer(
+                                                          polylines: [
+                                                            Polyline(
+                                                              points: _route!.polyline,
+                                                              strokeWidth: 4,
+                                                              color: AppColors.accent,
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      MarkerLayer(
+                                                        markers: [
+                                                          if (driverMarker != null)
+                                                            driverMarker,
+                                                          if (pickup != null)
+                                                            Marker(
+                                                              point: pickup,
+                                                              width: 36,
+                                                              height: 36,
+                                                              child: const Icon(
+                                                                Icons.location_on,
+                                                                color: Colors.green,
+                                                                size: 36,
+                                                              ),
+                                                            ),
+                                                          if (clientPos != null)
+                                                            Marker(
+                                                              point: clientPos,
+                                                              width: 22,
+                                                              height: 22,
+                                                              child: Container(
+                                                                decoration: BoxDecoration(
+                                                                  color: Colors.blueAccent,
+                                                                  shape: BoxShape.circle,
+                                                                  border: Border.all(
+                                                                    color: Colors.white,
+                                                                    width: 3,
+                                                                  ),
+                                                                  boxShadow: const [
+                                                                    BoxShadow(
+                                                                      color: Colors.black38,
+                                                                      blurRadius: 4,
+                                                                    ),
+                                                                  ],
+                                                                ),
+                                                              ),
+                                                            ),
+                                                        ],
+                                                      ),
+                                                    ],
+                                                  );
+                                                },
+                                              );
+                                            },
                                           );
                                         },
                                       ),
@@ -960,6 +1191,33 @@ class _RideOfferCard extends StatelessWidget {
                   label: AppStrings.driverDestination,
                   address: request.destinationAddress,
                 ),
+                if (request.price != null) ...[
+                  const SizedBox(height: 12),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.only(top: 4),
+                        child: Icon(
+                          Icons.payments_outlined,
+                          size: 12,
+                          color: AppColors.accentBright,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          '${AppStrings.driverOfferPrice} — '
+                          '${formatFcfa(request.price!)} FCFA',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                color: AppColors.accentBright,
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
                 if (request.offerExpiresAt != null) ...[
                   const SizedBox(height: 12),
                   _OfferCountdown(expiresAt: request.offerExpiresAt!),
@@ -1033,14 +1291,26 @@ class _ActiveRide extends StatelessWidget {
   const _ActiveRide({
     required this.rideId,
     required this.onEnd,
+    required this.onAdvance,
     required this.onUnavailable,
     required this.firestore,
+    required this.eta,
   });
 
   final FirebaseFirestore firestore;
   final String rideId;
   final ValueChanged<RideStatus> onEnd;
+
+  /// Fait passer la course à l'étape suivante (accepted → arrived →
+  /// inProgress) — distinct de [onEnd], qui termine ou annule la course.
+  final ValueChanged<RideStatus> onAdvance;
   final VoidCallback onUnavailable;
+
+  /// Durée estimée jusqu'à la prochaine étape — point de départ du client
+  /// tant que la course est `accepted`, destination une fois `inProgress` —
+  /// calculée via `RoutingService` (OSRM). `null` tant qu'aucun itinéraire
+  /// n'a encore été reçu, ou hors sujet à l'étape `arrived` (ETA = 0).
+  final Duration? eta;
 
   @override
   Widget build(BuildContext context) {
@@ -1085,6 +1355,14 @@ class _ActiveRide extends StatelessWidget {
           );
         }
         final request = RideRequest.fromDoc(snapshot.data!);
+        final badgeText = switch (request.status) {
+          RideStatus.accepted => AppStrings.driverStatusEnRoute,
+          RideStatus.arrived => AppStrings.driverStatusArrived,
+          _ => AppStrings.driverAcceptedRide,
+        };
+        final etaPrefix = request.status == RideStatus.inProgress
+            ? AppStrings.driverEtaToDestinationPrefix
+            : AppStrings.driverEtaToPickupPrefix;
         return Padding(
           padding: const EdgeInsets.all(20),
           child: Column(
@@ -1100,13 +1378,23 @@ class _ActiveRide extends StatelessWidget {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  AppStrings.driverAcceptedRide,
+                  badgeText,
                   style: const TextStyle(
                     color: AppColors.accentBright,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
+              if (eta != null && request.status != RideStatus.arrived) ...[
+                const SizedBox(height: 10),
+                Text(
+                  '$etaPrefix ${formatEta(eta!)}',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppColors.accent,
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+              ],
               const SizedBox(height: 18),
               Container(
                 width: double.infinity,
@@ -1159,8 +1447,16 @@ class _ActiveRide extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () => onEnd(RideStatus.completed),
-                  child: const Text(AppStrings.driverComplete),
+                  onPressed: switch (request.status) {
+                    RideStatus.accepted => () => onAdvance(RideStatus.arrived),
+                    RideStatus.arrived => () => onAdvance(RideStatus.inProgress),
+                    _ => () => onEnd(RideStatus.completed),
+                  },
+                  child: Text(switch (request.status) {
+                    RideStatus.accepted => AppStrings.driverMarkArrived,
+                    RideStatus.arrived => AppStrings.driverStartRide,
+                    _ => AppStrings.driverComplete,
+                  }),
                 ),
               ),
               const SizedBox(height: 10),

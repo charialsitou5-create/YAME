@@ -26,7 +26,11 @@ class MessagesTab extends StatelessWidget {
             : FirebaseFirestore.instance
                 .collection('ride_requests')
                 .where('clientUid', isEqualTo: uid)
-                .where('status', isEqualTo: RideStatus.accepted.firestoreValue)
+                .where('status', whereIn: [
+                  RideStatus.accepted.firestoreValue,
+                  RideStatus.arrived.firestoreValue,
+                  RideStatus.inProgress.firestoreValue,
+                ])
                 .limit(1)
                 .snapshots(),
         builder: (context, snapshot) {

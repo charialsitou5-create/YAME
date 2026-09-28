@@ -9,7 +9,11 @@ import '../models/vehicle_type.dart';
 
 /// Résultat d'une connexion sociale réussie.
 class SocialSignInResult {
-  const SocialSignInResult({required this.uid, required this.needsPhone});
+  const SocialSignInResult({
+    required this.uid,
+    required this.needsPhone,
+    this.conflictingMode,
+  });
 
   final String uid;
 
@@ -18,6 +22,17 @@ class SocialSignInResult {
   /// juste après (voir `CompleteProfileScreen`) avant d'entrer dans l'app,
   /// le reste de Yame (contact chauffeur/passager, SMS) en dépend.
   final bool needsPhone;
+
+  /// Non-null si l'appelant a explicitement demandé un rôle (voir
+  /// [SocialAuthService.signInWithGoogle]/[signInWithFacebook],
+  /// `announceModeConflict: true`, utilisé par les cartes de rôle de
+  /// `OnboardingScreen`/`SignupScreen`) et que le compte existait déjà avec
+  /// un `activeMode` différent. Le compte n'est PAS basculé automatiquement
+  /// — ça reste le rôle exclusif du bouton de bascule dans `ProfilScreen`,
+  /// seul endroit qui applique le garde-fou "course en cours" — ce champ ne
+  /// sert qu'à prévenir l'utilisateur plutôt que de le rediriger en
+  /// silence vers un mode différent de celui qu'il vient de choisir.
+  final AppMode? conflictingMode;
 }
 
 /// Connexion Google et Facebook via Firebase Auth.
@@ -47,8 +62,16 @@ class SocialAuthService {
 
   /// Retourne `null` si l'utilisateur annule la connexion (pas une erreur).
   /// [vehicleType] : passé depuis l'écran d'inscription chauffeur, pour que
-  /// le compte créé démarre en mode chauffeur plutôt que client.
-  static Future<SocialSignInResult?> signInWithGoogle({VehicleType? vehicleType}) async {
+  /// le compte créé démarre en mode chauffeur plutôt que client — sans
+  /// effet sur un compte déjà existant (voir [SocialSignInResult.conflictingMode]).
+  /// [announceModeConflict] : `true` quand [vehicleType] reflète un choix
+  /// explicite de l'utilisateur (carte de rôle cliquée sur `OnboardingScreen`/
+  /// `SignupScreen`) plutôt qu'un simple défaut de `LoginScreen` (qui ne
+  /// propose aucun choix de rôle et doit donc toujours valoir `false`).
+  static Future<SocialSignInResult?> signInWithGoogle({
+    VehicleType? vehicleType,
+    bool announceModeConflict = false,
+  }) async {
     await _ensureGoogleInitialized();
 
     final GoogleSignInAccount account;
@@ -69,17 +92,29 @@ class SocialAuthService {
 
     final credential = GoogleAuthProvider.credential(idToken: idToken);
     final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
-    final createdNew = await _ensureUserDocument(
+    final (createdNew, existingMode) = await _ensureUserDocument(
       userCredential,
       name: account.displayName,
       email: account.email,
       vehicleType: vehicleType,
     );
-    return SocialSignInResult(uid: userCredential.user!.uid, needsPhone: createdNew);
+    return SocialSignInResult(
+      uid: userCredential.user!.uid,
+      needsPhone: createdNew,
+      conflictingMode: _conflictingMode(
+        announceModeConflict: announceModeConflict,
+        createdNew: createdNew,
+        requested: vehicleType == null ? AppMode.client : AppMode.driver,
+        existing: existingMode,
+      ),
+    );
   }
 
   /// Retourne `null` si l'utilisateur annule la connexion (pas une erreur).
-  static Future<SocialSignInResult?> signInWithFacebook({VehicleType? vehicleType}) async {
+  static Future<SocialSignInResult?> signInWithFacebook({
+    VehicleType? vehicleType,
+    bool announceModeConflict = false,
+  }) async {
     final loginResult = await FacebookAuth.instance.login(
       permissions: const ['email', 'public_profile'],
     );
@@ -96,18 +131,40 @@ class SocialAuthService {
     final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
 
     final profile = await FacebookAuth.instance.getUserData(fields: 'name,email');
-    final createdNew = await _ensureUserDocument(
+    final (createdNew, existingMode) = await _ensureUserDocument(
       userCredential,
       name: profile['name'] as String?,
       email: profile['email'] as String?,
       vehicleType: vehicleType,
     );
-    return SocialSignInResult(uid: userCredential.user!.uid, needsPhone: createdNew);
+    return SocialSignInResult(
+      uid: userCredential.user!.uid,
+      needsPhone: createdNew,
+      conflictingMode: _conflictingMode(
+        announceModeConflict: announceModeConflict,
+        createdNew: createdNew,
+        requested: vehicleType == null ? AppMode.client : AppMode.driver,
+        existing: existingMode,
+      ),
+    );
+  }
+
+  static AppMode? _conflictingMode({
+    required bool announceModeConflict,
+    required bool createdNew,
+    required AppMode requested,
+    required AppMode? existing,
+  }) {
+    if (!announceModeConflict || createdNew || existing == null) return null;
+    return existing == requested ? null : existing;
   }
 
   /// Crée la fiche Firestore `users/{uid}` au premier passage. Renvoie
-  /// `true` si la fiche vient d'être créée (donc sans téléphone).
-  static Future<bool> _ensureUserDocument(
+  /// `(true, null)` si la fiche vient d'être créée (donc sans téléphone),
+  /// sinon `(false, <activeMode déjà enregistré>)` — ne modifie jamais
+  /// `activeMode` d'un compte existant : seul `ProfilScreen` bascule le
+  /// mode d'un compte déjà créé (avec son garde-fou "course en cours").
+  static Future<(bool, AppMode?)> _ensureUserDocument(
     UserCredential credential, {
     String? name,
     String? email,
@@ -116,7 +173,10 @@ class SocialAuthService {
     final uid = credential.user!.uid;
     final docRef = FirebaseFirestore.instance.collection('users').doc(uid);
     final doc = await docRef.get();
-    if (doc.exists) return false;
+    if (doc.exists) {
+      final activeModeValue = doc.data()?['activeMode'] as String?;
+      return (false, AppMode.fromFirestoreValue(activeModeValue ?? ''));
+    }
 
     final user = AppUser(
       uid: uid,
@@ -127,7 +187,7 @@ class SocialAuthService {
       driverVehicleType: vehicleType,
     );
     await docRef.set(user.toMap());
-    return true;
+    return (true, null);
   }
 
   static Future<void> signOutAll() async {

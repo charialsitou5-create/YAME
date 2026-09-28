@@ -97,6 +97,7 @@ class AppStrings {
       'Touchez la carte pour définir la destination';
   static const bookingVehicleCar = 'Voiture';
   static const bookingVehicleMoto = 'Moto';
+  static const bookingEstimatedPrice = 'Prix estimé';
   static const bookingCta = 'Rechercher un chauffeur';
   static const bookingLocationDenied =
       'Autorisez l\'accès à la position pour centrer la carte sur vous.';
@@ -111,6 +112,12 @@ class AppStrings {
       'Aucun chauffeur disponible pour le moment.';
   static const bookingAccepted = 'Chauffeur trouvé';
   static const bookingDriverOnTheWay = 'arrive pour vous prendre en charge.';
+  static const bookingDriverEtaPrefix = 'Arrivée estimée dans';
+  static const bookingArrivedTitle = 'Votre chauffeur est arrivé';
+  static const bookingArrivedBody =
+      'Rendez-vous au point de départ, votre chauffeur vous attend.';
+  static const bookingInProgressTitle = 'Course en cours';
+  static const bookingInProgressBody = 'En route vers votre destination.';
   static const bookingSharePosition = 'Partager ma position';
   static const bookingSharePositionWhatsapp = 'WhatsApp';
   static const bookingSharePositionSms = 'SMS';
@@ -186,9 +193,16 @@ class AppStrings {
   static const driverDecline = 'Refuser';
   static const driverOfferExpiresIn = 'Répondez avant';
   static const driverAcceptedRide = 'Course en cours';
+  static const driverStatusEnRoute = 'En route vers le client';
+  static const driverStatusArrived = 'Arrivé chez le client';
+  static const driverMarkArrived = 'Je suis arrivé';
+  static const driverStartRide = 'Client à bord — Démarrer la course';
   static const driverClient = 'Particulier';
   static const driverPickup = 'Départ';
   static const driverDestination = 'Destination';
+  static const driverOfferPrice = 'Prix';
+  static const driverEtaToPickupPrefix = 'Arrivée chez le client dans';
+  static const driverEtaToDestinationPrefix = 'Arrivée à destination dans';
   static const driverComplete = 'Terminer la course';
   static const driverCancelRide = 'Annuler la course';
   static const driverCancelConfirmTitle = 'Annuler cette course ?';
@@ -286,6 +300,17 @@ class AppStrings {
   static const profileSwitchToClient = 'Passer en mode particulier';
   static const profileSwitchBlocked =
       'Terminez votre course en cours avant de changer de mode.';
+
+  // Reconnexion sur un compte existant via un rôle différent (écran d'accueil)
+  static const reconnectStillDriverTitle = 'Toujours en mode chauffeur';
+  static const reconnectStillDriverBody =
+      'Ce compte est déjà connecté en mode chauffeur. Pour passer en mode '
+      'particulier, utilisez le bouton de bascule dans votre Profil.';
+  static const reconnectStillClientTitle = 'Toujours en mode particulier';
+  static const reconnectStillClientBody =
+      'Ce compte est déjà connecté en mode particulier. Pour passer en mode '
+      'chauffeur, utilisez le bouton de bascule dans votre Profil.';
+  static const reconnectUnderstood = 'Compris';
 
   // Inscription chauffeur — assistant véhicule (3 étapes)
   static const wizardStepVehicleInfo = 'Informations\ndu véhicule';

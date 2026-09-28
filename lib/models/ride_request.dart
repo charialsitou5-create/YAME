@@ -6,6 +6,16 @@ import 'vehicle_type.dart';
 enum RideStatus {
   searching,
   accepted,
+
+  /// Le chauffeur a signalé être arrivé au point de départ (bouton "Je suis
+  /// arrivé" côté chauffeur) — distinct de `accepted` pour que le client
+  /// sache qu'il n'a plus besoin de suivre la carte, le chauffeur attend.
+  arrived,
+
+  /// Le client est monté à bord (bouton "Démarrer la course" côté
+  /// chauffeur) — l'itinéraire suivi bascule du point de départ vers la
+  /// destination (voir `booking_screen.dart` / `driver_home_screen.dart`).
+  inProgress,
   completed,
   cancelled,
   noDriverFound;
@@ -40,6 +50,7 @@ class RideRequest {
     this.contactRequesterInstead = false,
     this.offeredUid,
     this.offerExpiresAt,
+    this.price,
   });
 
   final String? id;
@@ -53,6 +64,14 @@ class RideRequest {
   final RideStatus status;
   final String? driverUid;
   final String? driverName;
+
+  /// Estimation FCFA affichée au client à la commande et au chauffeur dans
+  /// l'offre — figée au moment de la création de la demande (voir
+  /// `core/fare.dart`). Purement informatif : le montant réellement facturé
+  /// est toujours recalculé côté serveur par `yame-admin` (`PaymentService`),
+  /// jamais lu depuis ce champ. `null` pour une course créée avant son
+  /// introduction.
+  final int? price;
 
   /// Chauffeur actuellement sollicité par le dispatch serveur (yame-admin),
   /// `null` hors offre active — voir `docs/superpowers/specs/2026-09-12-ride-dispatch-design.md`.
@@ -89,6 +108,7 @@ class RideRequest {
       'recipientPhone': recipientPhone,
       'recipientInstructions': recipientInstructions,
       'contactRequesterInstead': contactRequesterInstead,
+      if (price != null) 'price': price,
       'createdAt': FieldValue.serverTimestamp(),
     };
   }
@@ -120,6 +140,7 @@ class RideRequest {
       recipientPhone: data['recipientPhone'] as String?,
       recipientInstructions: data['recipientInstructions'] as String?,
       contactRequesterInstead: data['contactRequesterInstead'] as bool? ?? false,
+      price: (data['price'] as num?)?.toInt(),
     );
   }
 }

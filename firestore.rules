@@ -23,6 +23,25 @@ service cloud.firestore {
             : resource.data.get('driverActiveRideId', null) == null)
       );
       allow delete: if false;
+
+      // Position GPS live du client, dans une sous-collection séparée du
+      // profil (pas dans le document ci-dessus) — même schéma que
+      // `driver_profiles/{id}/location/current` : le propriétaire écrit
+      // toujours ; un chauffeur ne lit que s'il est celui affecté à sa
+      // course en cours (`activeDriverUid`, posé par yame-admin/Admin SDK
+      // à l'attribution — voir lib/dispatch/workflow.ts), avec la même
+      // expiration de sécurité de 2h sur `updatedAt` en cas de fermeture
+      // brutale de l'app côté client sans repasser par le nettoyage normal.
+      match /location/{docId} {
+        allow read: if request.auth != null && (
+          request.auth.uid == userId ||
+          (resource != null
+            && resource.data.get('activeDriverUid', null) == request.auth.uid
+            && resource.data.get('updatedAt', null) != null
+            && request.time < resource.data.updatedAt + duration.value(2, 'h'))
+        );
+        allow write: if request.auth != null && request.auth.uid == userId;
+      }
     }
 
     // Fiche véhicule d'un chauffeur (assistant d'inscription en 3 étapes).
@@ -124,10 +143,15 @@ service cloud.firestore {
           && request.resource.data.status == 'cancelled'
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']))
         ||
-        // le chauffeur assigné termine ou annule la course acceptée
-        (resource.data.status == 'accepted'
-          && resource.data.driverUid == request.auth.uid
-          && request.resource.data.status in ['completed', 'cancelled']
+        // le chauffeur assigné fait avancer sa course acceptée d'une étape
+        // à la fois (arrivé → client à bord → terminée), ou l'annule à
+        // n'importe quel stade avant la fin — jamais de saut d'étape.
+        (resource.data.driverUid == request.auth.uid
+          && (
+            (resource.data.status == 'accepted' && request.resource.data.status in ['arrived', 'cancelled']) ||
+            (resource.data.status == 'arrived' && request.resource.data.status in ['inProgress', 'cancelled']) ||
+            (resource.data.status == 'inProgress' && request.resource.data.status in ['completed', 'cancelled'])
+          )
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']))
         ||
         // le client note le chauffeur une fois la course terminée

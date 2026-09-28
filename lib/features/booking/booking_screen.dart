@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -7,11 +9,14 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../core/constants/app_strings.dart';
+import '../../core/fare.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/ride_request.dart';
 import '../../models/vehicle_type.dart';
 import '../../routes/app_routes.dart';
+import '../../services/client_tracking_service.dart';
 import '../../services/dispatch_service.dart';
+import '../../services/routing_service.dart';
 import 'cancel_reason_screen.dart';
 import 'payment_screen.dart';
 import 'rating_screen.dart';
@@ -52,12 +57,32 @@ class _BookingScreenState extends State<BookingScreen> {
   bool _submittingRequest = false;
   RideRecipient? _recipient;
   bool _clientActiveRideCleared = false;
+  FarePricing? _pricing;
+
+  final _clientTracking = ClientTrackingService();
+  RouteResult? _route;
+  LatLng? _routeOrigin;
+  DateTime? _routeFetchedAt;
+  bool _fetchingRoute = false;
+
+  int? get _estimatedPrice {
+    if (_pickupPosition == null || _destinationPosition == null) return null;
+    return estimateFareFcfa(
+      pickup: _pickupPosition!,
+      destination: _destinationPosition!,
+      vehicleType: _vehicleType,
+      pricing: _pricing ?? FarePricing.defaults,
+    );
+  }
 
   @override
   void initState() {
     super.initState();
     _locateMe();
     _recoverActiveRequest();
+    loadFarePricing().then((p) {
+      if (mounted) setState(() => _pricing = p);
+    });
   }
 
   Future<void> _recoverActiveRequest() async {
@@ -70,7 +95,14 @@ class _BookingScreenState extends State<BookingScreen> {
     final activeId = doc.data()?['clientActiveRideId'] as String?;
     if (activeId != null && mounted) {
       setState(() => _activeRequestId = activeId);
+      unawaited(_clientTracking.startTracking());
     }
+  }
+
+  @override
+  void dispose() {
+    _clientTracking.stopTracking();
+    super.dispose();
   }
 
   Future<void> _locateMe() async {
@@ -229,6 +261,7 @@ class _BookingScreenState extends State<BookingScreen> {
         recipientPhone: _recipient?.phone,
         recipientInstructions: _recipient?.instructions,
         contactRequesterInstead: _recipient?.contactRequesterInstead ?? false,
+        price: _estimatedPrice,
       );
       final requestRef = FirebaseFirestore.instance
           .collection('ride_requests')
@@ -245,6 +278,7 @@ class _BookingScreenState extends State<BookingScreen> {
         _activeRequestId = requestRef.id;
         _clientActiveRideCleared = false;
       });
+      unawaited(_clientTracking.startTracking());
 
       try {
         await DispatchService.start(rideId: requestRef.id);
@@ -280,6 +314,59 @@ class _BookingScreenState extends State<BookingScreen> {
       });
     await batch.commit();
     _clientActiveRideCleared = true;
+    unawaited(_clientTracking.stopTracking());
+  }
+
+  /// Recalcule l'itinéraire réel (OSRM) chauffeur → point de départ au plus
+  /// une fois toutes les 15s, ou si le chauffeur s'est déplacé de plus de
+  /// 30m depuis le dernier calcul — pour ne pas bombarder le serveur public
+  /// à chaque tick de position (mise à jour tous les 10m côté chauffeur).
+  /// Best-effort : un échec (réseau, service indisponible) laisse
+  /// simplement l'ancien tracé affiché, sans jamais bloquer l'écran.
+  void _maybeFetchRoute(LatLng origin, LatLng destination) {
+    if (_fetchingRoute) return;
+    final now = DateTime.now();
+    final stale = _routeFetchedAt == null ||
+        now.difference(_routeFetchedAt!) > const Duration(seconds: 15);
+    final moved = _routeOrigin == null ||
+        Geolocator.distanceBetween(
+              origin.latitude,
+              origin.longitude,
+              _routeOrigin!.latitude,
+              _routeOrigin!.longitude,
+            ) >
+            30;
+    if (!stale && !moved) return;
+
+    _fetchingRoute = true;
+    RoutingService.fetchRoute(from: origin, to: destination).then((result) {
+      _fetchingRoute = false;
+      if (!mounted || result == null) return;
+      setState(() {
+        _route = result;
+        _routeOrigin = origin;
+        _routeFetchedAt = DateTime.now();
+      });
+    });
+  }
+
+  /// Point bleu "vous êtes ici", distinct du pin de départ (vert) — se
+  /// déplace en direct tant que la course est active, pour que le client se
+  /// voie bouger sur la carte (voir `ClientTrackingService`).
+  Marker _buildMyPositionMarker(LatLng position) {
+    return Marker(
+      point: position,
+      width: 22,
+      height: 22,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.blueAccent,
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white, width: 3),
+          boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 4)],
+        ),
+      ),
+    );
   }
 
   List<Marker> _buildStaticMarkers() {
@@ -329,65 +416,123 @@ class _BookingScreenState extends State<BookingScreen> {
                 userAgentPackageName: 'com.yame.yame',
               ),
               StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-                stream: _activeRequestId != null
+                stream: (_activeRequestId != null &&
+                        FirebaseAuth.instance.currentUser != null)
                     ? FirebaseFirestore.instance
-                          .collection('ride_requests')
-                          .doc(_activeRequestId)
+                          .collection('users')
+                          .doc(FirebaseAuth.instance.currentUser!.uid)
+                          .collection('location')
+                          .doc('current')
                           .snapshots()
                     : const Stream.empty(),
-                builder: (context, rideSnap) {
-                  final driverUid =
-                      rideSnap.data?.data()?['driverUid'] as String?;
-                  if (driverUid == null) {
-                    return MarkerLayer(markers: _buildStaticMarkers());
+                builder: (context, myLocSnap) {
+                  final myLocationData = myLocSnap.data?.data();
+                  LatLng? myPos;
+                  if (myLocationData != null &&
+                      myLocationData['lat'] != null &&
+                      myLocationData['lng'] != null) {
+                    myPos = LatLng(
+                      (myLocationData['lat'] as num).toDouble(),
+                      (myLocationData['lng'] as num).toDouble(),
+                    );
                   }
 
                   return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-                    stream: FirebaseFirestore.instance
-                        .collection('driver_profiles')
-                        .doc(driverUid)
-                        .collection('location')
-                        .doc('current')
-                        .snapshots(),
-                    builder: (context, driverSnap) {
-                      final locationData = driverSnap.data?.data();
-                      LatLng? driverPos;
-                      if (locationData != null &&
-                          locationData['lat'] != null &&
-                          locationData['lng'] != null) {
-                        driverPos = LatLng(
-                          (locationData['lat'] as num).toDouble(),
-                          (locationData['lng'] as num).toDouble(),
+                    stream: _activeRequestId != null
+                        ? FirebaseFirestore.instance
+                              .collection('ride_requests')
+                              .doc(_activeRequestId)
+                              .snapshots()
+                        : const Stream.empty(),
+                    builder: (context, rideSnap) {
+                      final rideData = rideSnap.data?.data();
+                      final driverUid = rideData?['driverUid'] as String?;
+                      final rideStatus = rideData?['status'] as String?;
+                      if (driverUid == null) {
+                        return MarkerLayer(
+                          markers: [
+                            ..._buildStaticMarkers(),
+                            if (myPos != null) _buildMyPositionMarker(myPos),
+                          ],
                         );
                       }
 
-                      return MarkerLayer(
-                        markers: [
-                          ..._buildStaticMarkers(),
-                          if (driverPos != null)
-                            Marker(
-                              point: driverPos,
-                              width: 44,
-                              height: 44,
-                              child: Container(
-                                decoration: const BoxDecoration(
-                                  color: AppColors.accent,
-                                  shape: BoxShape.circle,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black38,
-                                      blurRadius: 6,
+                      return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                        stream: FirebaseFirestore.instance
+                            .collection('driver_profiles')
+                            .doc(driverUid)
+                            .collection('location')
+                            .doc('current')
+                            .snapshots(),
+                        builder: (context, driverSnap) {
+                          final locationData = driverSnap.data?.data();
+                          LatLng? driverPos;
+                          if (locationData != null &&
+                              locationData['lat'] != null &&
+                              locationData['lng'] != null) {
+                            driverPos = LatLng(
+                              (locationData['lat'] as num).toDouble(),
+                              (locationData['lng'] as num).toDouble(),
+                            );
+                          }
+
+                          // Avant l'arrivée du chauffeur : itinéraire vers le
+                          // point de départ. Une fois à bord : itinéraire vers
+                          // la destination. "Arrivé" : pas de tracé, ETA = 0.
+                          if (driverPos != null &&
+                              rideStatus == RideStatus.accepted.firestoreValue &&
+                              _pickupPosition != null) {
+                            _maybeFetchRoute(driverPos, _pickupPosition!);
+                          } else if (driverPos != null &&
+                              rideStatus == RideStatus.inProgress.firestoreValue &&
+                              _destinationPosition != null) {
+                            _maybeFetchRoute(driverPos, _destinationPosition!);
+                          }
+
+                          return Stack(
+                            children: [
+                              if (_route != null)
+                                PolylineLayer(
+                                  polylines: [
+                                    Polyline(
+                                      points: _route!.polyline,
+                                      strokeWidth: 4,
+                                      color: AppColors.accent,
                                     ),
                                   ],
                                 ),
-                                child: const Icon(
-                                  Icons.directions_car_filled_rounded,
-                                  color: Colors.black,
-                                  size: 26,
-                                ),
+                              MarkerLayer(
+                                markers: [
+                                  ..._buildStaticMarkers(),
+                                  if (myPos != null) _buildMyPositionMarker(myPos),
+                                  if (driverPos != null)
+                                    Marker(
+                                      point: driverPos,
+                                      width: 44,
+                                      height: 44,
+                                      child: Container(
+                                        decoration: const BoxDecoration(
+                                          color: AppColors.accent,
+                                          shape: BoxShape.circle,
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black38,
+                                              blurRadius: 6,
+                                            ),
+                                          ],
+                                        ),
+                                        child: const Icon(
+                                          Icons.directions_car_filled_rounded,
+                                          color: Colors.black,
+                                          size: 26,
+                                        ),
+                                      ),
+                                    ),
+                                ],
                               ),
-                            ),
-                        ],
+                            ],
+                          );
+                        },
                       );
                     },
                   );
@@ -453,6 +598,7 @@ class _BookingScreenState extends State<BookingScreen> {
                     destinationAddress: _destinationAddress,
                     hasPickup: _pickupPosition != null,
                     hasDestination: _destinationPosition != null,
+                    estimatedPrice: _estimatedPrice,
                     canRequest: canRequest,
                     submitting: _submittingRequest,
                     recipient: _recipient,
@@ -479,6 +625,7 @@ class _BookingScreenState extends State<BookingScreen> {
                               ride.status == RideStatus.cancelled ||
                               ride.status == RideStatus.noDriverFound)) {
                         _clientActiveRideCleared = true;
+                        unawaited(_clientTracking.stopTracking());
                         final uid = FirebaseAuth.instance.currentUser?.uid;
                         if (uid != null) {
                           FirebaseFirestore.instance
@@ -490,6 +637,7 @@ class _BookingScreenState extends State<BookingScreen> {
                       return _RideStatusPanel(
                         status: ride?.status ?? RideStatus.searching,
                         ride: ride,
+                        eta: _route?.duration,
                         onCancel: (reason, comment) =>
                             _cancelRequest(reason: reason, comment: comment),
                         onNewBooking: _startNewBooking,
@@ -540,6 +688,7 @@ class _BookingPanel extends StatelessWidget {
     required this.destinationAddress,
     required this.hasPickup,
     required this.hasDestination,
+    required this.estimatedPrice,
     required this.canRequest,
     required this.submitting,
     required this.recipient,
@@ -556,6 +705,7 @@ class _BookingPanel extends StatelessWidget {
   final String? destinationAddress;
   final bool hasPickup;
   final bool hasDestination;
+  final int? estimatedPrice;
   final bool canRequest;
   final bool submitting;
   final RideRecipient? recipient;
@@ -627,6 +777,32 @@ class _BookingPanel extends StatelessWidget {
                 onEdit: onEditRecipient,
                 onClear: onClearRecipient,
               ),
+              if (estimatedPrice != null) ...[
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Text(
+                      AppStrings.bookingEstimatedPrice,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const Spacer(),
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          '${formatFcfa(estimatedPrice!)} FCFA',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 17,
+                            color: AppColors.accent,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: (canRequest && !submitting) ? onRequest : null,
@@ -792,12 +968,18 @@ class _RideStatusPanel extends StatelessWidget {
   const _RideStatusPanel({
     required this.status,
     required this.ride,
+    required this.eta,
     required this.onCancel,
     required this.onNewBooking,
   });
 
   final RideStatus status;
   final RideRequest? ride;
+
+  /// Durée estimée du trajet en cours (chauffeur → point de départ), calculée
+  /// via `RoutingService` (OSRM) — `null` tant qu'aucun itinéraire n'a
+  /// encore été reçu (pas d'affichage plutôt qu'un placeholder trompeur).
+  final Duration? eta;
   final void Function(String reason, String? comment) onCancel;
   final VoidCallback onNewBooking;
 
@@ -896,12 +1078,60 @@ class _RideStatusPanel extends StatelessWidget {
               '${ride?.driverName?.isNotEmpty == true ? ride!.driverName : AppStrings.driverClient} ${AppStrings.bookingDriverOnTheWay}',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
+            if (eta != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                '${AppStrings.bookingDriverEtaPrefix} ${formatEta(eta!)}',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppColors.accent,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+            ],
             const SizedBox(height: 16),
             OutlinedButton.icon(
               onPressed: () => _sharePosition(context),
               icon: const Icon(Icons.share_location_rounded, size: 18),
               label: const Text(AppStrings.bookingSharePosition),
             ),
+          ],
+          RideStatus.arrived => [
+            Text(
+              AppStrings.bookingArrivedTitle,
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              AppStrings.bookingArrivedBody,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: () => _sharePosition(context),
+              icon: const Icon(Icons.share_location_rounded, size: 18),
+              label: const Text(AppStrings.bookingSharePosition),
+            ),
+          ],
+          RideStatus.inProgress => [
+            Text(
+              AppStrings.bookingInProgressTitle,
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              AppStrings.bookingInProgressBody,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            if (eta != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                '${AppStrings.bookingDriverEtaPrefix} ${formatEta(eta!)}',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppColors.accent,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+            ],
           ],
           RideStatus.completed => [
             Text(
