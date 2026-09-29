@@ -8,8 +8,11 @@ import '../../models/app_mode.dart';
 import '../../models/app_user.dart';
 import '../../models/vehicle_type.dart';
 import '../../routes/app_routes.dart';
+import '../driver/recharge_screen.dart';
 import '../driver/vehicle_registration_wizard.dart';
 import '../support/report_issue_screen.dart';
+import 'personal_info_screen.dart';
+import 'settings_screen.dart';
 
 /// Onglet Profil : identité, activités, réglages du compte.
 class ProfilScreen extends StatelessWidget {
@@ -31,6 +34,23 @@ class ProfilScreen extends StatelessWidget {
   }
 
   Future<void> _logout(BuildContext context) async {
+    // Un chauffeur qui se déconnecte en étant en ligne doit repasser hors
+    // ligne côté Firestore (sinon `driverOnline` reste vrai indéfiniment et
+    // le dispatch pourrait continuer à le considérer candidat — voir
+    // `yame-admin/lib/dispatch/workflow.ts`). Le flux GPS local, lui, s'arrête
+    // tout seul via `DriverTrackingService.stopTracking()` au `dispose()` de
+    // `DriverHomeScreen` quand tout l'arbre de widgets est démonté ci-dessous.
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      final data = doc.data();
+      if (data?['activeMode'] == 'driver' && data?['driverOnline'] == true) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(uid)
+            .update({'driverOnline': false});
+      }
+    }
     await FirebaseAuth.instance.signOut();
     if (!context.mounted) return;
     Navigator.of(context)
@@ -130,7 +150,15 @@ class ProfilScreen extends StatelessWidget {
                       icon: Icons.person_outline_rounded,
                       title: AppStrings.profilePersonalInfo,
                       subtitle: AppStrings.profilePersonalInfoSubtitle,
-                      onTap: () => _showComingSoon(context),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => PersonalInfoScreen(
+                            name: user?.name ?? '',
+                            phone: user?.phone ?? '',
+                            email: user?.email,
+                          ),
+                        ),
+                      ),
                     ),
                     const _RowDivider(),
                     _SettingsRow(
@@ -158,7 +186,9 @@ class ProfilScreen extends StatelessWidget {
                       icon: Icons.settings_outlined,
                       title: AppStrings.profileSettings,
                       subtitle: AppStrings.profileSettingsSubtitle,
-                      onTap: () => _showComingSoon(context),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                      ),
                     ),
                     const _RowDivider(),
                     _SettingsRow(
@@ -567,15 +597,135 @@ class _DriverSection extends StatelessWidget {
             ? AppStrings.profileSwitchToDriver
             : AppStrings.profileSwitchToClient;
 
-        return _SettingsRow(
-          icon: Icons.sync_alt_rounded,
-          title: label,
-          subtitle: blocked ? AppStrings.profileSwitchBlocked : null,
-          onTap: () => blocked
-              ? _showSnack(context, AppStrings.profileSwitchBlocked)
-              : _switchMode(targetMode),
+        return Column(
+          children: [
+            _DriverWalletRow(uid: uid),
+            const _RowDivider(),
+            _SettingsRow(
+              icon: Icons.sync_alt_rounded,
+              title: label,
+              subtitle: blocked ? AppStrings.profileSwitchBlocked : null,
+              onTap: () => blocked
+                  ? _showSnack(context, AppStrings.profileSwitchBlocked)
+                  : _switchMode(targetMode),
+            ),
+          ],
         );
       },
+    );
+  }
+}
+
+/// Rappel du solde chauffeur dans l'onglet Profil — mêmes chiffres que la
+/// carte de la page Accueil, pour pouvoir les consulter depuis l'un ou
+/// l'autre écran sans dépendre uniquement du dashboard chauffeur.
+class _DriverWalletRow extends StatelessWidget {
+  const _DriverWalletRow({required this.uid});
+
+  final String uid;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance
+          .collection('driver_profiles')
+          .doc(uid)
+          .collection('wallet')
+          .doc('current')
+          .snapshots(),
+      builder: (context, snapshot) {
+        final balance = snapshot.data?.data()?['balance'] as int? ?? 0;
+        final earnings = snapshot.data?.data()?['earningsBalance'] as int? ?? 0;
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Expanded(
+                child: _WalletAmount(
+                  icon: Icons.bolt_rounded,
+                  label: AppStrings.driverDashboardRechargeAccount,
+                  amount: balance,
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const RechargeScreen()),
+                  ),
+                  actionLabel: AppStrings.driverDashboardRecharge,
+                ),
+              ),
+              Container(width: 1, height: 36, color: AppColors.border),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _WalletAmount(
+                  icon: Icons.savings_outlined,
+                  label: AppStrings.driverDashboardEarningsAccount,
+                  amount: earnings,
+                  onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text(AppStrings.socialAuthComingSoon)),
+                  ),
+                  actionLabel: AppStrings.driverDashboardSeeEarnings,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _WalletAmount extends StatelessWidget {
+  const _WalletAmount({
+    required this.icon,
+    required this.label,
+    required this.amount,
+    required this.onTap,
+    required this.actionLabel,
+  });
+
+  final IconData icon;
+  final String label;
+  final int amount;
+  final VoidCallback onTap;
+  final String actionLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 16, color: AppColors.accent),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '$amount FCFA',
+            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            actionLabel,
+            style: const TextStyle(
+              color: AppColors.accent,
+              fontWeight: FontWeight.w600,
+              fontSize: 12.5,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

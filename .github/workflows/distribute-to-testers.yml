@@ -1,0 +1,40 @@
+name: Distribute to testers
+
+# À chaque push sur main : construit l'APK et l'envoie automatiquement sur
+# Firebase App Distribution — les testeurs déjà invités reçoivent une
+# notification avec le nouveau build, sans build/upload manuel.
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-and-distribute:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.1'
+          channel: 'stable'
+
+      - run: flutter pub get
+
+      # Build debug : pas de keystore de signature à gérer, cohérent avec
+      # les builds déjà distribués aux testeurs jusqu'ici. À revoir (build
+      # signé) seulement au moment de publier sur le Play Store.
+      - run: flutter build apk --debug
+
+      - name: Upload to Firebase App Distribution
+        uses: wzieba/Firebase-Distribution-Github-Action@v1
+        with:
+          appId: '1:276529399832:android:43ea3468cfe13968951b6d'
+          serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          groups: ${{ vars.FIREBASE_TESTER_GROUPS || 'testers' }}
+          file: build/app/outputs/flutter-apk/app-debug.apk
+          releaseNotes: ${{ github.event.head_commit.message }}

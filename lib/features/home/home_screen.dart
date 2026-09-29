@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 import '../../models/app_mode.dart';
 import '../../models/app_user.dart';
 import '../../services/notification_service.dart';
-import '../driver/driver_home_screen.dart';
 import '../driver/driver_intro_screen.dart';
+import '../driver/driver_shell.dart';
 import '../driver/driver_status_screen.dart';
 import 'client_shell.dart';
 
@@ -76,7 +76,7 @@ class _HomeScreenState extends State<HomeScreen> {
             if (status != 'approved') {
               return const DriverStatusScreen(rejected: false);
             }
-            return DriverHomeScreen(vehicleType: vehicleType, driverName: user.name);
+            return DriverShell(vehicleType: vehicleType, driverName: user.name);
           },
         );
       },

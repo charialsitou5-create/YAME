@@ -218,7 +218,6 @@ class AppStrings {
   static const driverContactPassenger = 'Contacter le passager';
   static const driverBalanceRequired =
       'Rechargez votre compte pour passer en ligne et recevoir des courses.';
-  static const driverBalanceRequiredCta = 'Recharger mon compte';
   static const driverPendingTitle = 'Inscription en cours de vérification';
   static const driverPendingBody =
       'Notre équipe vérifie vos informations et documents. Vous recevrez une notification dès que votre compte sera validé.';
@@ -300,6 +299,8 @@ class AppStrings {
   static const profileSwitchToClient = 'Passer en mode particulier';
   static const profileSwitchBlocked =
       'Terminez votre course en cours avant de changer de mode.';
+  static const navLockedDuringRide =
+      'Terminez votre course en cours avant de changer d\'écran.';
 
   // Reconnexion sur un compte existant via un rôle différent (écran d'accueil)
   static const reconnectStillDriverTitle = 'Toujours en mode chauffeur';
@@ -397,6 +398,14 @@ class AppStrings {
   static const profileStatPayments = 'Paiements';
   static const profilePersonalInfo = 'Informations personnelles';
   static const profilePersonalInfoSubtitle = 'Gérez vos informations';
+  static const personalInfoEmailLocked =
+      'Identifiant de connexion, non modifiable.';
+  static const personalInfoSaveCta = 'Enregistrer';
+  static const personalInfoSaved = 'Informations mises à jour.';
+  static const personalInfoChangePassword = 'Changer le mot de passe';
+  static const fieldCurrentPassword = 'Mot de passe actuel';
+  static const fieldNewPassword = 'Nouveau mot de passe';
+  static const personalInfoPasswordChanged = 'Mot de passe changé.';
   static const profilePaymentMethods = 'Moyens de paiement';
   static const profilePaymentMethodsSubtitle = 'Carte ou mobile money';
   static const profileAddresses = 'Adresses enregistrées';
@@ -406,6 +415,11 @@ class AppStrings {
   static const profileSettings = 'Paramètres';
   static const profileSettingsSubtitle =
       'Notifications, langue, confidentialité';
+  static const settingsNotificationsTitle = 'Notifications push';
+  static const settingsNotificationsSubtitle =
+      'Alertes de nouvelles courses et de mises à jour.';
+  static const settingsLanguageTitle = 'Langue';
+  static const settingsPrivacyTitle = 'Confidentialité';
   static const profileHelp = 'Aide & Support';
   static const profileHelpSubtitle = 'FAQ, contactez-nous';
   static const profileAbout = 'À propos de Yame';

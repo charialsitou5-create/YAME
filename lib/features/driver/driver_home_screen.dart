@@ -12,12 +12,9 @@ import '../../core/fare.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/ride_request.dart';
 import '../../models/vehicle_type.dart';
-import '../../routes/app_routes.dart';
 import '../../services/dispatch_response_service.dart';
 import '../../services/driver_tracking_service.dart';
 import '../../services/routing_service.dart';
-import '../home/profil_screen.dart';
-import '../support/report_issue_screen.dart';
 import 'contact_passenger_screen.dart';
 import 'recharge_screen.dart';
 
@@ -157,14 +154,6 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     } else {
       _trackingService.stopTracking();
     }
-  }
-
-  Future<void> _logout() async {
-    if (_online) _toggleOnline(false);
-    await FirebaseAuth.instance.signOut();
-    if (!mounted) return;
-    Navigator.of(context)
-        .pushNamedAndRemoveUntil(AppRoutes.onboarding, (route) => false);
   }
 
   Future<void> _respondToOffer(RideRequest request, bool accept) async {
@@ -353,44 +342,6 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                                           letterSpacing: 0.5,
                                         ),
                                   ),
-                                ),
-                                IconButton(
-                                  onPressed: () => Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (_) => const RechargeScreen(),
-                                    ),
-                                  ),
-                                  icon: const Icon(
-                                    Icons.account_balance_wallet_outlined,
-                                  ),
-                                  tooltip: AppStrings.driverWallet,
-                                ),
-                                IconButton(
-                                  onPressed: () => Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (_) => const ReportIssueScreen(),
-                                    ),
-                                  ),
-                                  icon: const Icon(
-                                    Icons.report_problem_outlined,
-                                  ),
-                                  tooltip: AppStrings.reportTitle,
-                                ),
-                                IconButton(
-                                  onPressed: () => Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (_) => const Scaffold(
-                                        body: ProfilScreen(),
-                                      ),
-                                    ),
-                                  ),
-                                  icon: const Icon(Icons.person_outline_rounded),
-                                  tooltip: AppStrings.navProfile,
-                                ),
-                                IconButton(
-                                  onPressed: _logout,
-                                  icon: const Icon(Icons.logout_rounded),
-                                  tooltip: AppStrings.logout,
                                 ),
                               ],
                             ),
@@ -839,8 +790,12 @@ class _RechargeAccountCard extends StatelessWidget {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.background,
                 foregroundColor: AppColors.accent,
-                minimumSize: const Size(0, 48),
+                minimumSize: const Size(0, 38),
                 padding: const EdgeInsets.symmetric(horizontal: 12),
+                textStyle: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               onPressed: onRecharge,
               child: const FittedBox(
@@ -1059,52 +1014,32 @@ class _OfflineNotice extends StatelessWidget {
   }
 }
 
+/// Explique pourquoi le bouton "en ligne" est désactivé — sans second bouton
+/// "Recharger" : celui de `_RechargeAccountCard`, juste au-dessus, est déjà
+/// la seule invite à recharger sur cet écran (en avoir deux à la suite était
+/// jugé agressif par les testeurs).
 class _BalanceRequiredNotice extends StatelessWidget {
   const _BalanceRequiredNotice();
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 72,
-              height: 72,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: AppColors.surfaceElevated,
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: AppColors.error.withValues(alpha: 0.4),
-                ),
-              ),
-              child: const Icon(
-                Icons.account_balance_wallet_outlined,
-                size: 32,
-                color: AppColors.error,
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text(
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.info_outline_rounded,
+            size: 18,
+            color: AppColors.textSecondary,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
               AppStrings.driverBalanceRequired,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyLarge,
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const RechargeScreen()),
-                ),
-                child: const Text(AppStrings.driverBalanceRequiredCta),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

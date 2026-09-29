@@ -2,8 +2,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_core_platform_interface/test.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:yame/features/driver/driver_home_screen.dart';
 import 'package:yame/features/driver/driver_intro_screen.dart';
+import 'package:yame/features/driver/driver_shell.dart';
 import 'package:yame/features/driver/driver_status_screen.dart';
 import 'package:yame/features/home/profil_screen.dart';
 import 'package:yame/models/vehicle_type.dart';
@@ -19,16 +19,16 @@ void main() {
     await Firebase.initializeApp();
   });
 
-  testWidgets('DriverHomeScreen exposes a Profil icon that opens ProfilScreen', (t) async {
+  testWidgets('DriverShell exposes a Profil tab that opens ProfilScreen', (t) async {
     await t.pumpWidget(const MaterialApp(
-      home: DriverHomeScreen(vehicleType: VehicleType.car, driverName: 'Test'),
+      home: DriverShell(vehicleType: VehicleType.car, driverName: 'Test'),
     ));
     await t.pump(const Duration(milliseconds: 500));
 
-    final profileButton = find.widgetWithIcon(IconButton, Icons.person_outline_rounded);
-    expect(profileButton, findsOneWidget);
+    final profileTab = find.widgetWithIcon(InkWell, Icons.person_outline_rounded);
+    expect(profileTab, findsOneWidget);
 
-    await t.tap(profileButton);
+    await t.tap(profileTab);
     await t.pumpAndSettle();
 
     expect(find.byType(ProfilScreen), findsOneWidget);
