@@ -92,15 +92,19 @@ class AppStrings {
   static const bookingSetDestination = 'Définir la destination';
   static const bookingPickupLabel = 'Départ';
   static const bookingDestinationLabel = 'Destination';
-  static const bookingPickupHint = 'Touchez la carte pour définir le départ';
+  static const bookingPickupHint = 'Touchez pour choisir le départ';
   static const bookingDestinationHint =
-      'Touchez la carte pour définir la destination';
+      'Touchez pour choisir la destination';
   static const bookingVehicleCar = 'Voiture';
   static const bookingVehicleMoto = 'Moto';
   static const bookingEstimatedPrice = 'Prix estimé';
   static const bookingCta = 'Rechercher un chauffeur';
   static const bookingLocationDenied =
       'Autorisez l\'accès à la position pour centrer la carte sur vous.';
+  static const pickerSearchHint = 'Rechercher un lieu, une rue, un quartier…';
+  static const pickerConfirm = 'Confirmer ce point';
+  static const driverLocateFailed =
+      'Impossible de vous localiser. Activez le GPS et autorisez la position.';
   static const bookingLocatingMe = 'Localisation en cours…';
   static const bookingSearching = 'Recherche d\'un chauffeur…';
   static const bookingCancel = 'Annuler';

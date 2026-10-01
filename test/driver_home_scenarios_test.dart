@@ -14,6 +14,8 @@ class _NoGps extends DriverTrackingService {
   Future<void> startTracking() async {}
   @override
   void stopTracking() {}
+  @override
+  Future<LatLng?> locateNow() async => null;
 }
 
 const _uid = 'drv1';

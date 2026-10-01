@@ -108,6 +108,42 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   void initState() {
     super.initState();
     _recoverActiveRide();
+    _trackingService.position.addListener(_followFirstFix);
+    // Position réelle dès l'ouverture (même hors ligne) pour que la carte
+    // ne reste pas calée sur Pointe-Noire quand le chauffeur est ailleurs.
+    _recenterOnMe(silent: true);
+  }
+
+  bool _hasFix = false;
+
+  /// Au premier relevé GPS, la carte se centre sur le chauffeur au lieu de
+  /// rester sur la position par défaut.
+  void _followFirstFix() {
+    final p = _trackingService.position.value;
+    if (p == null || _hasFix || !mounted) return;
+    _hasFix = true;
+    try {
+      _mapController.move(p, 15);
+    } catch (_) {}
+  }
+
+  /// Bouton GPS : relit la vraie position, la publie (le dispatch s'appuie
+  /// dessus) et recentre la carte.
+  Future<void> _recenterOnMe({bool silent = false}) async {
+    final p = await _trackingService.locateNow();
+    if (!mounted) return;
+    if (p == null) {
+      if (!silent) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text(AppStrings.driverLocateFailed)),
+        );
+      }
+      return;
+    }
+    _hasFix = true;
+    try {
+      _mapController.move(p, 16);
+    } catch (_) {}
   }
 
   Future<void> _recoverActiveRide() async {
@@ -137,6 +173,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
 
   @override
   void dispose() {
+    _trackingService.position.removeListener(_followFirstFix);
     _trackingService.stopTracking();
     super.dispose();
   }
@@ -693,10 +730,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                                   bottom: 10,
                                   child: _MapControlButton(
                                     icon: Icons.my_location_rounded,
-                                    onTap: () => _mapController.move(
-                                      _pointeNoireCenter,
-                                      _mapController.camera.zoom,
-                                    ),
+                                    onTap: _recenterOnMe,
                                   ),
                                 ),
                               ],

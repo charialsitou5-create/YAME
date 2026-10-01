@@ -18,6 +18,7 @@ import '../../services/client_tracking_service.dart';
 import '../../services/dispatch_service.dart';
 import '../../services/routing_service.dart';
 import 'cancel_reason_screen.dart';
+import 'location_picker_screen.dart';
 import 'payment_screen.dart';
 import 'rating_screen.dart';
 import 'recipient_details_screen.dart';
@@ -50,6 +51,8 @@ class _BookingScreenState extends State<BookingScreen> {
   _PickMode _pickMode = _PickMode.pickup;
   late VehicleType _vehicleType = widget.initialVehicleType;
 
+  /// Dernier point connu de l'utilisateur (sinon Pointe-Noire par défaut).
+  LatLng _lastKnownCenter = _pointeNoireCenter;
   bool _locating = true;
   String? _locationError;
 
@@ -126,8 +129,24 @@ class _BookingScreenState extends State<BookingScreen> {
         return;
       }
 
-      final position = await Geolocator.getCurrentPosition();
+      // Position en cache d'abord (instantanée) pour ne jamais laisser la
+      // carte sur Pointe-Noire quand l'utilisateur est ailleurs, puis une
+      // lecture fraîche avec délai maximal (sinon le GPS pouvait bloquer).
+      final cached = await Geolocator.getLastKnownPosition();
+      if (cached != null) {
+        _lastKnownCenter = LatLng(cached.latitude, cached.longitude);
+        try {
+          _mapController.move(_lastKnownCenter, 15);
+        } catch (_) {}
+      }
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 15),
+        ),
+      );
       final latLng = LatLng(position.latitude, position.longitude);
+      _lastKnownCenter = latLng;
       await _setPoint(_PickMode.pickup, latLng, animateCamera: true);
     } catch (_) {
       if (mounted)
@@ -153,7 +172,9 @@ class _BookingScreenState extends State<BookingScreen> {
     });
 
     if (animateCamera) {
-      _mapController.move(point, 15);
+      try {
+        _mapController.move(point, 15);
+      } catch (_) {}
     }
 
     final address = await _reverseGeocode(point);
@@ -186,8 +207,46 @@ class _BookingScreenState extends State<BookingScreen> {
     }
   }
 
-  void _onMapTap(TapPosition tapPosition, LatLng point) {
-    _setPoint(_pickMode, point);
+  /// Ouvre la carte plein écran (avec recherche écrite) pour le champ touché.
+  Future<void> _pickOnFullMap(_PickMode mode) async {
+    final isPickup = mode == _PickMode.pickup;
+    final current = isPickup ? _pickupPosition : _destinationPosition;
+    final result = await Navigator.of(context).push<PickedLocation>(
+      MaterialPageRoute(
+        builder: (_) => LocationPickerScreen(
+          title: isPickup
+              ? AppStrings.bookingPickupLabel
+              : AppStrings.bookingDestinationLabel,
+          initialCenter: _pickupPosition ?? _lastKnownCenter,
+          initialPoint: current,
+          pinColor: isPickup ? Colors.green : Colors.orange,
+        ),
+      ),
+    );
+    if (result == null || !mounted) return;
+    setState(() {
+      if (isPickup) {
+        _pickupPosition = result.point;
+        _pickupAddress = result.address;
+      } else {
+        _destinationPosition = result.point;
+        _destinationAddress = result.address;
+      }
+    });
+    if (result.address == null) {
+      final address = await _reverseGeocode(result.point);
+      if (!mounted) return;
+      setState(() {
+        if (isPickup) {
+          _pickupAddress = address;
+        } else {
+          _destinationAddress = address;
+        }
+      });
+    }
+    try {
+      _mapController.move(result.point, 15);
+    } catch (_) {}
   }
 
   Future<void> _editRecipient() async {
@@ -408,7 +467,6 @@ class _BookingScreenState extends State<BookingScreen> {
             options: MapOptions(
               initialCenter: _pointeNoireCenter,
               initialZoom: 13,
-              onTap: _onMapTap,
             ),
             children: [
               TileLayer(
@@ -602,7 +660,7 @@ class _BookingScreenState extends State<BookingScreen> {
                     canRequest: canRequest,
                     submitting: _submittingRequest,
                     recipient: _recipient,
-                    onModeChanged: (mode) => setState(() => _pickMode = mode),
+                    onPick: _pickOnFullMap,
                     onVehicleChanged: (type) =>
                         setState(() => _vehicleType = type),
                     onRequest: _requestDriver,
@@ -692,7 +750,7 @@ class _BookingPanel extends StatelessWidget {
     required this.canRequest,
     required this.submitting,
     required this.recipient,
-    required this.onModeChanged,
+    required this.onPick,
     required this.onVehicleChanged,
     required this.onRequest,
     required this.onEditRecipient,
@@ -709,7 +767,7 @@ class _BookingPanel extends StatelessWidget {
   final bool canRequest;
   final bool submitting;
   final RideRecipient? recipient;
-  final ValueChanged<_PickMode> onModeChanged;
+  final ValueChanged<_PickMode> onPick;
   final ValueChanged<VehicleType> onVehicleChanged;
   final VoidCallback onRequest;
   final VoidCallback onEditRecipient;
@@ -740,7 +798,7 @@ class _BookingPanel extends StatelessWidget {
                 hint: AppStrings.bookingPickupHint,
                 selected: pickMode == _PickMode.pickup,
                 hasPoint: hasPickup,
-                onTap: () => onModeChanged(_PickMode.pickup),
+                onTap: () => onPick(_PickMode.pickup),
               ),
               const SizedBox(height: 10),
               _LocationTile(
@@ -751,7 +809,7 @@ class _BookingPanel extends StatelessWidget {
                 hint: AppStrings.bookingDestinationHint,
                 selected: pickMode == _PickMode.destination,
                 hasPoint: hasDestination,
-                onTap: () => onModeChanged(_PickMode.destination),
+                onTap: () => onPick(_PickMode.destination),
               ),
               const SizedBox(height: 16),
               Row(
