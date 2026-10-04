@@ -216,6 +216,9 @@ class AppStrings {
   static const driverCancelConfirmYes = 'Oui, annuler';
   static const driverRequestTaken =
       'Cette course vient d\'être prise par un autre chauffeur.';
+  static const driverCommissionError =
+      'La commission de la course n\'a pas pu être prélevée.';
+  static const driverRideCancelledByClient = 'Le client a annulé la course.';
   static const driverActiveRideUnavailable =
       'Cette course n\'est plus disponible.';
   static const driverActiveRideUnavailableCta = 'Retour aux courses';

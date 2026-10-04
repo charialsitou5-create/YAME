@@ -12,6 +12,7 @@ import '../../core/fare.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/ride_request.dart';
 import '../../models/vehicle_type.dart';
+import '../../services/payment_service.dart';
 import '../../services/dispatch_response_service.dart';
 import '../../services/driver_tracking_service.dart';
 import '../../services/routing_service.dart';
@@ -257,6 +258,36 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     }
   }
 
+  /// Le client a annulé pendant que la course était active : on libère le
+  /// chauffeur (état local + `driverActiveRideId` + accès à la position du
+  /// client) pour qu'il redevienne disponible, sans réécrire le statut de
+  /// la course, déjà `cancelled`.
+  Future<void> _releaseCancelledRide() async {
+    final id = _activeRideId;
+    final uid = _uid;
+    if (id == null) return;
+    setState(() {
+      _activeRideId = null;
+      _route = null;
+      _routeOrigin = null;
+      _routeFetchedAt = null;
+    });
+    if (uid != null) {
+      final batch = _db.batch()
+        ..set(
+          _db.collection('driver_profiles').doc(uid).collection('location').doc('current'),
+          {'activeClientUid': FieldValue.delete()},
+          SetOptions(merge: true),
+        )
+        ..update(_db.collection('users').doc(uid), {'driverActiveRideId': null});
+      await batch.commit();
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(AppStrings.driverRideCancelledByClient)),
+    );
+  }
+
   Future<void> _endRide(RideStatus newStatus) async {
     final id = _activeRideId;
     if (id == null) return;
@@ -282,6 +313,17 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       });
     }
     await batch.commit();
+    if (newStatus == RideStatus.completed) {
+      try {
+        await PaymentService.chargeCommission(rideId: id);
+      } catch (_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text(AppStrings.driverCommissionError)),
+          );
+        }
+      }
+    }
     if (!mounted) return;
     setState(() {
       _activeRideId = null;
@@ -511,6 +553,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                           rideId: _activeRideId!,
                           onEnd: _endRide,
                           onAdvance: _advanceRide,
+                          onClientCancelled: _releaseCancelledRide,
                           onUnavailable: () => setState(() {
                             _activeRideId = null;
                             _route = null;
@@ -1262,6 +1305,7 @@ class _ActiveRide extends StatelessWidget {
     required this.onEnd,
     required this.onAdvance,
     required this.onUnavailable,
+    required this.onClientCancelled,
     required this.firestore,
     required this.eta,
   });
@@ -1274,6 +1318,7 @@ class _ActiveRide extends StatelessWidget {
   /// inProgress) — distinct de [onEnd], qui termine ou annule la course.
   final ValueChanged<RideStatus> onAdvance;
   final VoidCallback onUnavailable;
+  final VoidCallback onClientCancelled;
 
   /// Durée estimée jusqu'à la prochaine étape — point de départ du client
   /// tant que la course est `accepted`, destination une fois `inProgress` —
@@ -1324,6 +1369,10 @@ class _ActiveRide extends StatelessWidget {
           );
         }
         final request = RideRequest.fromDoc(snapshot.data!);
+        if (request.status == RideStatus.cancelled) {
+          WidgetsBinding.instance.addPostFrameCallback((_) => onClientCancelled());
+          return const SizedBox.shrink();
+        }
         final badgeText = switch (request.status) {
           RideStatus.accepted => AppStrings.driverStatusEnRoute,
           RideStatus.arrived => AppStrings.driverStatusArrived,

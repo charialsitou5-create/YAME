@@ -1152,6 +1152,11 @@ class _RideStatusPanel extends StatelessWidget {
               icon: const Icon(Icons.share_location_rounded, size: 18),
               label: const Text(AppStrings.bookingSharePosition),
             ),
+            const SizedBox(height: 10),
+            OutlinedButton(
+              onPressed: () => _cancelWithReason(context),
+              child: const Text(AppStrings.bookingCancel),
+            ),
           ],
           RideStatus.arrived => [
             Text(
@@ -1168,6 +1173,11 @@ class _RideStatusPanel extends StatelessWidget {
               onPressed: () => _sharePosition(context),
               icon: const Icon(Icons.share_location_rounded, size: 18),
               label: const Text(AppStrings.bookingSharePosition),
+            ),
+            const SizedBox(height: 10),
+            OutlinedButton(
+              onPressed: () => _cancelWithReason(context),
+              child: const Text(AppStrings.bookingCancel),
             ),
           ],
           RideStatus.inProgress => [
