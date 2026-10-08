@@ -11,6 +11,10 @@ import '../../core/constants/app_strings.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/ride_request.dart';
 import '../../models/vehicle_type.dart';
+import '../../repositories/driver_repository.dart';
+import '../../repositories/ride_repository.dart';
+import '../../repositories/user_repository.dart';
+import '../../repositories/wallet_repository.dart';
 import '../../services/payment_service.dart';
 import '../../services/dispatch_response_service.dart';
 import '../../services/driver_tracking_service.dart';
@@ -158,10 +162,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   Future<void> _recoverActiveRide() async {
     final uid = _uid;
     if (uid == null) return;
-    final doc = await _db
-        .collection('users')
-        .doc(uid)
-        .get();
+    final doc = await UserRepository(_db).getUser(uid);
     final activeId = doc.data()?['driverActiveRideId'] as String?;
     final wasOnline = doc.data()?['driverOnline'] as bool? ?? false;
     if (!mounted) return;
@@ -191,7 +192,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     setState(() => _online = value);
     final uid = _uid;
     if (uid != null) {
-      _db.collection('users').doc(uid).update({
+      UserRepository(_db).updateUser(uid, {
         'driverOnline': value,
       });
     }
@@ -230,10 +231,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? subscription;
     Timer? timeoutTimer;
 
-    subscription = _db
-        .collection('ride_requests')
-        .doc(id)
-        .snapshots()
+    subscription = RideRepository(_db).watchRide(id)
         .listen((snapshot) {
           final data = snapshot.data();
           if (data != null &&
@@ -281,14 +279,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       _routeFetchedAt = null;
     });
     if (uid != null) {
-      final batch = _db.batch()
-        ..set(
-          _db.collection('driver_profiles').doc(uid).collection('location').doc('current'),
-          {'activeClientUid': FieldValue.delete()},
-          SetOptions(merge: true),
-        )
-        ..update(_db.collection('users').doc(uid), {'driverActiveRideId': null});
-      await batch.commit();
+      await RideRepository(_db).releaseDriver(uid);
     }
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -300,27 +291,11 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     final id = _activeRideId;
     if (id == null) return;
     final uid = _uid;
-    final batch = _db.batch()
-      ..update(_db.collection('ride_requests').doc(id), {
-        'status': newStatus.firestoreValue,
-      });
-    if (uid != null) {
-      // Révoque l'accès du client à la position GPS live maintenant que
-      // la course est terminée/annulée.
-      batch.set(
-        _db
-            .collection('driver_profiles')
-            .doc(uid)
-            .collection('location')
-            .doc('current'),
-        {'activeClientUid': FieldValue.delete()},
-        SetOptions(merge: true),
-      );
-      batch.update(_db.collection('users').doc(uid), {
-        'driverActiveRideId': null,
-      });
-    }
-    await batch.commit();
+    await RideRepository(_db).finishRide(
+      rideId: id,
+      status: newStatus,
+      driverUid: uid,
+    );
     if (newStatus == RideStatus.completed) {
       try {
         await PaymentService.chargeCommission(rideId: id);
@@ -351,7 +326,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   Future<void> _advanceRide(RideStatus newStatus) async {
     final id = _activeRideId;
     if (id == null) return;
-    await _db.collection('ride_requests').doc(id).update({
+    await RideRepository(_db).updateRide(id, {
       'status': newStatus.firestoreValue,
     });
     if (!mounted) return;
@@ -371,12 +346,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
           stream: uid == null
               ? null
-              : _db
-                    .collection('driver_profiles')
-                    .doc(uid)
-                    .collection('wallet')
-                    .doc('current')
-                    .snapshots(),
+              : WalletRepository(_db).watchWallet(uid),
           builder: (context, snapshot) {
             // Avant la première valeur du stream, `snapshot.data` est
             // `null` et `balance` retomberait à 0 — indiscernable d'un
@@ -608,12 +578,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                                       StreamBuilder<
                                         DocumentSnapshot<Map<String, dynamic>>
                                       >(
-                                        stream: _db
-                                            .collection('driver_profiles')
-                                            .doc(uid)
-                                            .collection('location')
-                                            .doc('current')
-                                            .snapshots(),
+                                        stream: DriverRepository(_db).watchLocation(uid),
                                         builder: (context, locSnap) {
                                           final data = locSnap.data?.data();
                                           LatLng? driverPos;
@@ -650,10 +615,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                                           return StreamBuilder<
                                             DocumentSnapshot<Map<String, dynamic>>
                                           >(
-                                            stream: _db
-                                                .collection('ride_requests')
-                                                .doc(_activeRideId)
-                                                .snapshots(),
+                                            stream: RideRepository(_db).watchRide(_activeRideId),
                                             builder: (context, rideSnap) {
                                               final rideData = rideSnap.data?.data();
                                               final pickupMap =
@@ -696,12 +658,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                                               >(
                                                 stream: clientUid == null
                                                     ? const Stream.empty()
-                                                    : _db
-                                                        .collection('users')
-                                                        .doc(clientUid)
-                                                        .collection('location')
-                                                        .doc('current')
-                                                        .snapshots(),
+                                                    : UserRepository(_db).watchClientLocation(clientUid),
                                                 builder: (context, clientLocSnap) {
                                                   final clientData =
                                                       clientLocSnap.data?.data();

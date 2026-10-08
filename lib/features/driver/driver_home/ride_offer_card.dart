@@ -7,6 +7,7 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/fare.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../models/ride_request.dart';
+import '../../../repositories/ride_repository.dart';
 import 'address_row.dart';
 
 class RideOfferCard extends StatelessWidget {
@@ -26,12 +27,7 @@ class RideOfferCard extends StatelessWidget {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: uid == null
           ? null
-          : firestore
-                .collection('ride_requests')
-                .where('offeredUid', isEqualTo: uid)
-                .where('status', isEqualTo: RideStatus.searching.firestoreValue)
-                .limit(1)
-                .snapshots(),
+          : RideRepository(firestore).watchOfferedRide(uid!),
       builder: (context, snapshot) {
         final docs = snapshot.data?.docs ?? [];
         if (docs.isEmpty) {

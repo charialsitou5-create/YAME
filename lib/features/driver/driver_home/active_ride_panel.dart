@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../models/ride_request.dart';
+import '../../../repositories/ride_repository.dart';
 import '../../../services/routing_service.dart';
 import '../contact_passenger_screen.dart';
 import 'address_row.dart';
@@ -40,10 +41,7 @@ class ActiveRide extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: firestore
-          .collection('ride_requests')
-          .doc(rideId)
-          .snapshots(),
+      stream: RideRepository(firestore).watchRide(rideId),
       builder: (context, snapshot) {
         if (!snapshot.hasData || !snapshot.data!.exists) {
           // Le chauffeur a perdu l'accès au document (course annulée/
