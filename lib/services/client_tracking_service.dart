@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:geolocator/geolocator.dart';
+import './error_reporter.dart';
 
 /// Service de suivi GPS en arrière-plan côté client, actif pendant qu'une
 /// course est en cours (demandée → résolue) : diffuse la position vers
@@ -56,7 +57,9 @@ class ClientTrackingService {
         'speed': position.speed,
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
-    } catch (_) {}
+    } catch (e, st) {
+      ErrorReporter.report(e, st, context: 'client_tracking.publish_location');
+      }
   }
 
   /// Arrête le suivi GPS et révoque l'accès du chauffeur affecté (le cas
@@ -76,6 +79,8 @@ class ClientTrackingService {
           .collection('location')
           .doc('current')
           .set({'activeDriverUid': FieldValue.delete()}, SetOptions(merge: true));
-    } catch (_) {}
+    } catch (e, st) {
+      ErrorReporter.report(e, st, context: 'client_tracking.clear_active_driver');
+      }
   }
 }
