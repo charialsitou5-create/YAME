@@ -478,4 +478,52 @@ class AppStrings {
       'Composez le code USSD reçu sur votre téléphone pour valider le paiement.';
   static const rechargeInitiateError =
       'Impossible de lancer la recharge, réessayez.';
+
+  // Mot de passe oublié
+  static const forgotPasswordLink = 'Mot de passe oublié ?';
+  static const forgotPasswordTitle = 'Mot de passe oublié';
+  static const forgotPasswordSubtitle =
+      'Saisissez votre adresse e-mail : nous vous enverrons un lien pour choisir un nouveau mot de passe.';
+  static const forgotPasswordCta = 'Envoyer le lien';
+  static const forgotPasswordSuccess =
+      'Si un compte existe avec cette adresse, un e-mail de réinitialisation vient d\'être envoyé. Pensez à vérifier vos courriers indésirables.';
+  static const forgotPasswordTooManyRequests =
+      'Trop de tentatives. Patientez quelques minutes avant de réessayer.';
+  static const forgotPasswordBackToLogin = 'Retour à la connexion';
+
+  // Vérification de l'e-mail
+  static const emailVerifyBannerTitle = 'Vérifiez votre e-mail';
+  static const emailVerifyBannerBody =
+      'Un lien de confirmation a été envoyé à votre adresse e-mail.';
+  static const emailVerifyResend = 'Renvoyer';
+  static const emailVerifyDone = 'J\'ai vérifié';
+  static const emailVerifyResent = 'E-mail de vérification renvoyé.';
+  static const emailVerifyStillPending =
+      'Votre e-mail n\'est pas encore vérifié.';
+  static const emailVerifyVerified = 'E-mail vérifié, merci !';
+  static const emailVerifyRequired =
+      'Vérifiez votre e-mail pour continuer.';
+
+  // Modération
+  static const moderationBlockedTitle = 'Compte restreint';
+  static const moderationSuspendedTitle = 'Compte suspendu';
+  static const moderationUntil = 'Jusqu\'au ';
+  static const moderationReasonLabel = 'Motif : ';
+  static const moderationContactSupport =
+      'Si vous pensez qu\'il s\'agit d\'une erreur, contactez le support Yame.';
+  static const moderationClientCannotRequest =
+      'Votre compte est restreint : vous ne pouvez pas commander de course pour le moment.';
+  static const moderationDriverCannotGoOnline =
+      'Votre compte chauffeur est suspendu : vous ne pouvez pas passer en ligne.';
+
+  // Mes signalements
+  static const myReportsTitle = 'Mes signalements';
+  static const myReportsEntry = 'Mes signalements et réponses';
+  static const myReportsEmpty =
+      'Aucun signalement enregistré sur cet appareil.';
+  static const myReportsReplyReceived = 'Réponse reçue';
+  static const myReportsInProgress = 'En cours de traitement';
+  static const myReportsNoReplyYet = 'Pas encore de réponse de l\'équipe.';
+  static const myReportsTeamReply = 'Réponse de l\'équipe Yame';
+  static const myReportsLoadError = 'Impossible de charger les réponses.';
 }
