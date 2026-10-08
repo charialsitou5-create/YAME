@@ -9,6 +9,8 @@ import '../driver/driver_intro_screen.dart';
 import '../driver/driver_shell.dart';
 import '../driver/driver_status_screen.dart';
 import 'client_shell.dart';
+import '../../repositories/driver_repository.dart';
+import '../../repositories/user_repository.dart';
 
 /// Aiguille vers l'écran de réservation (client) ou l'écran chauffeur,
 /// selon le rôle du profil chargé depuis Firestore.
@@ -38,10 +40,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (uid == null) return const SizedBox.shrink();
 
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .snapshots(),
+      stream: UserRepository().watchUser(uid),
       builder: (context, snapshot) {
         final data = snapshot.data?.data();
         if (data == null) return const SizedBox.shrink();
@@ -62,10 +61,7 @@ class _HomeScreenState extends State<HomeScreen> {
           return DriverIntroScreen(vehicleType: vehicleType);
         }
         return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-          stream: FirebaseFirestore.instance
-              .collection('driver_profiles')
-              .doc(uid)
-              .snapshots(),
+          stream: DriverRepository().watchProfile(uid),
           builder: (context, profileSnapshot) {
             final status =
                 profileSnapshot.data?.data()?['status'] as String? ??
