@@ -47,7 +47,7 @@ class _BookingScreenState extends State<BookingScreen> {
   String? _pickupAddress;
   String? _destinationAddress;
 
-  PickMode _pickMode = PickMode.pickup;
+  final PickMode _pickMode = PickMode.pickup;
   late VehicleType _vehicleType = widget.initialVehicleType;
 
   /// Dernier point connu de l'utilisateur (sinon Pointe-Noire par défaut).
@@ -147,8 +147,9 @@ class _BookingScreenState extends State<BookingScreen> {
       _lastKnownCenter = latLng;
       await _setPoint(PickMode.pickup, latLng, animateCamera: true);
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() => _locationError = AppStrings.bookingLocationDenied);
+      }
     } finally {
       if (mounted) setState(() => _locating = false);
     }
@@ -298,8 +299,9 @@ class _BookingScreenState extends State<BookingScreen> {
 
   Future<void> _requestDriver() async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null || _pickupPosition == null || _destinationPosition == null)
+    if (user == null || _pickupPosition == null || _destinationPosition == null) {
       return;
+    }
 
     setState(() => _submittingRequest = true);
     try {

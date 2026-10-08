@@ -32,7 +32,7 @@ Map<String, dynamic> _ride({String status = 'searching', bool offered = true, in
       'driverUid': status == 'accepted' ? _uid : null,
       if (offered) 'offeredUid': _uid,
       if (offered) 'offerExpiresAt': DateTime.now().add(const Duration(minutes: 5)).toIso8601String(),
-      if (price != null) 'price': price,
+      'price': ?price,
     };
 
 Future<FakeFirebaseFirestore> _db({

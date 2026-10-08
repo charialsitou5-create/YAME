@@ -93,7 +93,7 @@ class RideRepository {
       ..update(rideRef(rideId), {
         'status': RideStatus.cancelled.firestoreValue,
         'cancelReason': reason,
-        if (comment != null) 'cancelComment': comment,
+        'cancelComment': ?comment,
       })
       ..update(UserRepository(_db).userRef(clientUid), {'clientActiveRideId': null});
     return batch.commit();

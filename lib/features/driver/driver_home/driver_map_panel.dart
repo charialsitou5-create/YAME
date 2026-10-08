@@ -87,7 +87,7 @@ class DriverMapPanel extends StatelessWidget {
 
                         if (activeRideId == null) {
                           return MarkerLayer(
-                            markers: [if (driverMarker != null) driverMarker],
+                            markers: [?driverMarker],
                           );
                         }
 
@@ -168,7 +168,7 @@ class DriverMapPanel extends StatelessWidget {
                                       ),
                                     MarkerLayer(
                                       markers: [
-                                        if (driverMarker != null) driverMarker,
+                                        ?driverMarker,
                                         if (pickup != null)
                                           Marker(
                                             point: pickup,
