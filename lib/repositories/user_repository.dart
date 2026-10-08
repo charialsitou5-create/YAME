@@ -19,7 +19,8 @@ class UserRepository {
 
   Future<DocumentSnapshot<Json>> getUser(String uid) => userRef(uid).get();
 
-  Future<void> setUser(String uid, Json data) => userRef(uid).set(data);
+  Future<void> setUser(String uid, Json data, [SetOptions? options]) =>
+      userRef(uid).set(data, options);
 
   Future<void> updateUser(String uid, Json data) => userRef(uid).update(data);
 
