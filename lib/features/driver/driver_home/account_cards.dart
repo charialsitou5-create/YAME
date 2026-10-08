@@ -1,11 +1,14 @@
-
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_strings.dart';
 import '../../../core/theme/app_colors.dart';
 
 class RechargeAccountCard extends StatelessWidget {
-  const RechargeAccountCard({super.key, required this.balance, required this.onRecharge});
+  const RechargeAccountCard({
+    super.key,
+    required this.balance,
+    required this.onRecharge,
+  });
 
   final int balance;
   final VoidCallback onRecharge;
@@ -98,7 +101,11 @@ class RechargeAccountCard extends StatelessWidget {
 }
 
 class EarningsAccountCard extends StatelessWidget {
-  const EarningsAccountCard({super.key, required this.balance, required this.onSeeEarnings});
+  const EarningsAccountCard({
+    super.key,
+    required this.balance,
+    required this.onSeeEarnings,
+  });
 
   final int balance;
   final VoidCallback onSeeEarnings;

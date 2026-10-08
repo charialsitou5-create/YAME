@@ -105,7 +105,8 @@ class RideOfferCard extends StatelessWidget {
                         child: Text(
                           '${AppStrings.driverOfferPrice} — '
                           '${formatFcfa(request.price!)} FCFA',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
                                 color: AppColors.accentBright,
                                 fontWeight: FontWeight.w700,
                               ),

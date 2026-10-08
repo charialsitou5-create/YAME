@@ -1,4 +1,3 @@
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
@@ -79,7 +78,9 @@ class ActiveRide extends StatelessWidget {
         }
         final request = RideRequest.fromDoc(snapshot.data!);
         if (request.status == RideStatus.cancelled) {
-          WidgetsBinding.instance.addPostFrameCallback((_) => onClientCancelled());
+          WidgetsBinding.instance.addPostFrameCallback(
+            (_) => onClientCancelled(),
+          );
           return const SizedBox.shrink();
         }
         final badgeText = switch (request.status) {
@@ -117,9 +118,9 @@ class ActiveRide extends StatelessWidget {
                 Text(
                   '$etaPrefix ${formatEta(eta!)}',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppColors.accent,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    color: AppColors.accent,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ],
               const SizedBox(height: 18),
@@ -176,7 +177,9 @@ class ActiveRide extends StatelessWidget {
                 child: ElevatedButton(
                   onPressed: switch (request.status) {
                     RideStatus.accepted => () => onAdvance(RideStatus.arrived),
-                    RideStatus.arrived => () => onAdvance(RideStatus.inProgress),
+                    RideStatus.arrived => () => onAdvance(
+                      RideStatus.inProgress,
+                    ),
                     _ => () => onEnd(RideStatus.completed),
                   },
                   child: Text(switch (request.status) {

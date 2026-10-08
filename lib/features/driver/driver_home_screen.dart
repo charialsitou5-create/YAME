@@ -11,7 +11,6 @@ import '../../core/constants/app_strings.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/ride_request.dart';
 import '../../models/vehicle_type.dart';
-import '../../repositories/driver_repository.dart';
 import '../../repositories/ride_repository.dart';
 import '../../repositories/user_repository.dart';
 import '../../repositories/wallet_repository.dart';
@@ -20,14 +19,13 @@ import '../../services/dispatch_response_service.dart';
 import '../../services/driver_tracking_service.dart';
 import '../../services/routing_service.dart';
 import 'driver_home/account_cards.dart';
+import 'driver_home/driver_header.dart';
+import 'driver_home/driver_map_panel.dart';
 import 'driver_home/active_ride_panel.dart';
-import 'driver_home/map_control_button.dart';
 import 'driver_home/ride_offer_card.dart';
 import 'driver_home/status_notices.dart';
 import 'recharge_screen.dart';
 import '../../services/error_reporter.dart';
-
-const _pointeNoireCenter = LatLng(-4.7889, 11.8656);
 
 /// Écran chauffeur : bascule en ligne/hors ligne, carte live, solde, liste
 /// des demandes de course ouvertes pour son type de véhicule, et suivi de
@@ -54,8 +52,11 @@ class DriverHomeScreen extends StatefulWidget {
   /// Surcharge de [RoutingService.fetchRoute] pour les tests — sans elle,
   /// un test avec une course active déclencherait un vrai appel réseau vers
   /// le serveur OSRM public à chaque rendu de la carte.
-  final Future<RouteResult?> Function({required LatLng from, required LatLng to})?
-      routeFetcher;
+  final Future<RouteResult?> Function({
+    required LatLng from,
+    required LatLng to,
+  })?
+  routeFetcher;
 
   @override
   State<DriverHomeScreen> createState() => _DriverHomeScreenState();
@@ -88,9 +89,11 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   void _maybeFetchRoute(LatLng origin, LatLng destination) {
     if (_fetchingRoute) return;
     final now = DateTime.now();
-    final stale = _routeFetchedAt == null ||
+    final stale =
+        _routeFetchedAt == null ||
         now.difference(_routeFetchedAt!) > const Duration(seconds: 15);
-    final moved = _routeOrigin == null ||
+    final moved =
+        _routeOrigin == null ||
         Geolocator.distanceBetween(
               origin.latitude,
               origin.longitude,
@@ -135,7 +138,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       _mapController.move(p, 15);
     } catch (e, st) {
       ErrorReporter.report(e, st, context: 'driver_home.move_map_15');
-      }
+    }
   }
 
   /// Bouton GPS : relit la vraie position, la publie (le dispatch s'appuie
@@ -156,7 +159,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       _mapController.move(p, 16);
     } catch (e, st) {
       ErrorReporter.report(e, st, context: 'driver_home.move_map_16');
-      }
+    }
   }
 
   Future<void> _recoverActiveRide() async {
@@ -192,9 +195,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     setState(() => _online = value);
     final uid = _uid;
     if (uid != null) {
-      UserRepository(_db).updateUser(uid, {
-        'driverOnline': value,
-      });
+      UserRepository(_db).updateUser(uid, {'driverOnline': value});
     }
     if (value) {
       _trackingService.startTracking();
@@ -231,15 +232,14 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? subscription;
     Timer? timeoutTimer;
 
-    subscription = RideRepository(_db).watchRide(id)
-        .listen((snapshot) {
-          final data = snapshot.data();
-          if (data != null &&
-              data['status'] == 'accepted' &&
-              data['driverUid'] == uid) {
-            if (!completer.isCompleted) completer.complete(true);
-          }
-        });
+    subscription = RideRepository(_db).watchRide(id).listen((snapshot) {
+      final data = snapshot.data();
+      if (data != null &&
+          data['status'] == 'accepted' &&
+          data['driverUid'] == uid) {
+        if (!completer.isCompleted) completer.complete(true);
+      }
+    });
 
     timeoutTimer = Timer(const Duration(seconds: 15), () {
       if (!completer.isCompleted) completer.complete(false);
@@ -291,11 +291,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     final id = _activeRideId;
     if (id == null) return;
     final uid = _uid;
-    await RideRepository(_db).finishRide(
-      rideId: id,
-      status: newStatus,
-      driverUid: uid,
-    );
+    await RideRepository(_db)
+        .finishRide(rideId: id, status: newStatus, driverUid: uid);
     if (newStatus == RideStatus.completed) {
       try {
         await PaymentService.chargeCommission(rideId: id);
@@ -326,9 +323,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   Future<void> _advanceRide(RideStatus newStatus) async {
     final id = _activeRideId;
     if (id == null) return;
-    await RideRepository(_db).updateRide(id, {
-      'status': newStatus.firestoreValue,
-    });
+    await RideRepository(_db)
+        .updateRide(id, {'status': newStatus.firestoreValue});
     if (!mounted) return;
     setState(() {
       _route = null;
@@ -344,9 +340,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-          stream: uid == null
-              ? null
-              : WalletRepository(_db).watchWallet(uid),
+          stream: uid == null ? null : WalletRepository(_db).watchWallet(uid),
           builder: (context, snapshot) {
             // Avant la première valeur du stream, `snapshot.data` est
             // `null` et `balance` retomberait à 0 — indiscernable d'un
@@ -359,7 +353,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
               );
             }
             final balance = snapshot.data?.data()?['balance'] as int? ?? 0;
-            final earningsBalance = snapshot.data?.data()?['earningsBalance'] as int? ?? 0;
+            final earningsBalance =
+                snapshot.data?.data()?['earningsBalance'] as int? ?? 0;
             final hasBalance = balance > 0;
 
             if (_online && !hasBalance && _activeRideId == null) {
@@ -373,126 +368,9 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                 SliverToBoxAdapter(
                   child: Column(
                     children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Icon(
-                                  Icons.pin_drop_rounded,
-                                  color: AppColors.accent,
-                                  size: 22,
-                                ),
-                                const SizedBox(width: 6),
-                                Expanded(
-                                  child: Text(
-                                    'YAME',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleLarge
-                                        ?.copyWith(
-                                          color: AppColors.accent,
-                                          letterSpacing: 0.5,
-                                        ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 14),
-                            Row(
-                              children: [
-                                CircleAvatar(
-                                  radius: 24,
-                                  backgroundColor: AppColors.accent,
-                                  child: Text(
-                                    widget.driverName.isNotEmpty
-                                        ? widget.driverName[0].toUpperCase()
-                                        : '?',
-                                    style: const TextStyle(
-                                      color: AppColors.background,
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 18,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 14),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        '${AppStrings.homeGreeting} ${widget.driverName}',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .titleLarge,
-                                      ),
-                                      Text(
-                                        AppStrings.driverDashboardTitle,
-                                        style: const TextStyle(
-                                          color: AppColors.textSecondary,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Flexible(
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color:
-                                          (_online
-                                                  ? AppColors.success
-                                                  : AppColors.textDisabled)
-                                              .withValues(alpha: 0.16),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Container(
-                                          width: 8,
-                                          height: 8,
-                                          decoration: BoxDecoration(
-                                            color: _online
-                                                ? AppColors.success
-                                                : AppColors.textDisabled,
-                                            shape: BoxShape.circle,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Flexible(
-                                          child: Text(
-                                            _online
-                                                ? AppStrings.driverOnline
-                                                : AppStrings.driverOffline,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(
-                                              color: _online
-                                                  ? AppColors.success
-                                                  : AppColors.textSecondary,
-                                              fontWeight: FontWeight.w700,
-                                              fontSize: 13,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
+                      DriverHeader(
+                        driverName: widget.driverName,
+                        online: _online,
                       ),
                       const SizedBox(height: 16),
                       Padding(
@@ -511,9 +389,14 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         child: EarningsAccountCard(
                           balance: earningsBalance,
-                          onSeeEarnings: () => ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text(AppStrings.socialAuthComingSoon)),
-                          ),
+                          onSeeEarnings: () => ScaffoldMessenger.of(context)
+                              .showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    AppStrings.socialAuthComingSoon,
+                                  ),
+                                ),
+                              ),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -555,196 +438,14 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                   child: Column(
                     children: [
                       const SizedBox(height: 8),
-                      SizedBox(
-                        height: 180,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(18),
-                            child: Stack(
-                              children: [
-                                FlutterMap(
-                                  mapController: _mapController,
-                                  options: const MapOptions(
-                                    initialCenter: _pointeNoireCenter,
-                                    initialZoom: 13,
-                                  ),
-                                  children: [
-                                    TileLayer(
-                                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                                      userAgentPackageName: 'com.yame.yame',
-                                    ),
-                                    if (uid != null)
-                                      StreamBuilder<
-                                        DocumentSnapshot<Map<String, dynamic>>
-                                      >(
-                                        stream: DriverRepository(_db).watchLocation(uid),
-                                        builder: (context, locSnap) {
-                                          final data = locSnap.data?.data();
-                                          LatLng? driverPos;
-                                          if (data != null &&
-                                              data['lat'] != null &&
-                                              data['lng'] != null) {
-                                            driverPos = LatLng(
-                                              (data['lat'] as num).toDouble(),
-                                              (data['lng'] as num).toDouble(),
-                                            );
-                                          }
-
-                                          final driverMarker = driverPos == null
-                                              ? null
-                                              : Marker(
-                                                  point: driverPos,
-                                                  width: 40,
-                                                  height: 40,
-                                                  child: const Icon(
-                                                    Icons.directions_car_rounded,
-                                                    color: AppColors.accent,
-                                                    size: 28,
-                                                  ),
-                                                );
-
-                                          if (_activeRideId == null) {
-                                            return MarkerLayer(
-                                              markers: [
-                                                if (driverMarker != null) driverMarker,
-                                              ],
-                                            );
-                                          }
-
-                                          return StreamBuilder<
-                                            DocumentSnapshot<Map<String, dynamic>>
-                                          >(
-                                            stream: RideRepository(_db).watchRide(_activeRideId),
-                                            builder: (context, rideSnap) {
-                                              final rideData = rideSnap.data?.data();
-                                              final pickupMap =
-                                                  rideData?['pickup'] as Map<String, dynamic>?;
-                                              final destinationMap =
-                                                  rideData?['destination'] as Map<String, dynamic>?;
-                                              final rideStatus = rideData?['status'] as String?;
-                                              final clientUid =
-                                                  rideData?['clientUid'] as String?;
-                                              LatLng? pickup;
-                                              if (pickupMap != null) {
-                                                pickup = LatLng(
-                                                  (pickupMap['lat'] as num).toDouble(),
-                                                  (pickupMap['lng'] as num).toDouble(),
-                                                );
-                                              }
-                                              LatLng? destination;
-                                              if (destinationMap != null) {
-                                                destination = LatLng(
-                                                  (destinationMap['lat'] as num).toDouble(),
-                                                  (destinationMap['lng'] as num).toDouble(),
-                                                );
-                                              }
-
-                                              // Avant l'arrivée : itinéraire vers le client.
-                                              // Une fois à bord : itinéraire vers la destination.
-                                              // "Arrivé" (entre les deux) : pas de tracé, ETA = 0.
-                                              if (driverPos != null &&
-                                                  rideStatus == RideStatus.accepted.firestoreValue &&
-                                                  pickup != null) {
-                                                _maybeFetchRoute(driverPos, pickup);
-                                              } else if (driverPos != null &&
-                                                  rideStatus == RideStatus.inProgress.firestoreValue &&
-                                                  destination != null) {
-                                                _maybeFetchRoute(driverPos, destination);
-                                              }
-
-                                              return StreamBuilder<
-                                                DocumentSnapshot<Map<String, dynamic>>
-                                              >(
-                                                stream: clientUid == null
-                                                    ? const Stream.empty()
-                                                    : UserRepository(_db).watchClientLocation(clientUid),
-                                                builder: (context, clientLocSnap) {
-                                                  final clientData =
-                                                      clientLocSnap.data?.data();
-                                                  LatLng? clientPos;
-                                                  if (clientData != null &&
-                                                      clientData['lat'] != null &&
-                                                      clientData['lng'] != null) {
-                                                    clientPos = LatLng(
-                                                      (clientData['lat'] as num).toDouble(),
-                                                      (clientData['lng'] as num).toDouble(),
-                                                    );
-                                                  }
-
-                                                  return Stack(
-                                                    children: [
-                                                      if (_route != null)
-                                                        PolylineLayer(
-                                                          polylines: [
-                                                            Polyline(
-                                                              points: _route!.polyline,
-                                                              strokeWidth: 4,
-                                                              color: AppColors.accent,
-                                                            ),
-                                                          ],
-                                                        ),
-                                                      MarkerLayer(
-                                                        markers: [
-                                                          if (driverMarker != null)
-                                                            driverMarker,
-                                                          if (pickup != null)
-                                                            Marker(
-                                                              point: pickup,
-                                                              width: 36,
-                                                              height: 36,
-                                                              child: const Icon(
-                                                                Icons.location_on,
-                                                                color: Colors.green,
-                                                                size: 36,
-                                                              ),
-                                                            ),
-                                                          if (clientPos != null)
-                                                            Marker(
-                                                              point: clientPos,
-                                                              width: 22,
-                                                              height: 22,
-                                                              child: Container(
-                                                                decoration: BoxDecoration(
-                                                                  color: Colors.blueAccent,
-                                                                  shape: BoxShape.circle,
-                                                                  border: Border.all(
-                                                                    color: Colors.white,
-                                                                    width: 3,
-                                                                  ),
-                                                                  boxShadow: const [
-                                                                    BoxShadow(
-                                                                      color: Colors.black38,
-                                                                      blurRadius: 4,
-                                                                    ),
-                                                                  ],
-                                                                ),
-                                                              ),
-                                                            ),
-                                                        ],
-                                                      ),
-                                                    ],
-                                                  );
-                                                },
-                                              );
-                                            },
-                                          );
-                                        },
-                                      ),
-                                  ],
-                                ),
-                                Positioned(
-                                  right: 10,
-                                  bottom: 10,
-                                  child: MapControlButton(
-                                    icon: Icons.my_location_rounded,
-                                    onTap: _recenterOnMe,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
+                      DriverMapPanel(
+                        mapController: _mapController,
+                        firestore: _db,
+                        uid: uid,
+                        activeRideId: _activeRideId,
+                        route: _route,
+                        onNeedRoute: _maybeFetchRoute,
+                        onRecenter: _recenterOnMe,
                       ),
                       const SizedBox(height: 16),
                     ],

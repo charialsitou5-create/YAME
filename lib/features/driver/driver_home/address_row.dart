@@ -1,6 +1,4 @@
-
 import 'package:flutter/material.dart';
-
 
 class AddressRow extends StatelessWidget {
   const AddressRow({
