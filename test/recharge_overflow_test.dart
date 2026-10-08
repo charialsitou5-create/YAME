@@ -27,6 +27,9 @@ void main() {
         await t.pump(const Duration(milliseconds: 300));
         final ex = t.takeException();
         expect(ex is FlutterError && ex.toString().contains('overflowed'), isFalse, reason: '$ex');
+        // Comportement : l'écran est bien rendu avec du contenu, pas un écran vide.
+        expect(find.byType(RechargeScreen), findsOneWidget);
+        expect(find.byType(Text), findsWidgets);
       });
     }
   }
