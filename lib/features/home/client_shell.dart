@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants/app_strings.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/widgets/moderation_notice.dart';
 import '../../core/widgets/nav_bar_item.dart';
+import '../../models/moderation.dart';
 import '../../models/vehicle_type.dart';
 import '../booking/booking_screen.dart';
 import 'client_home_tab.dart';
@@ -51,9 +53,22 @@ class _ClientShellState extends State<ClientShell> {
           : UserRepository().watchUser(uid),
       builder: (context, snapshot) {
         final rideLocked = snapshot.data?.data()?['clientActiveRideId'] != null;
+        final moderation = ModerationState.forClient(snapshot.data?.data());
 
         return Scaffold(
-          body: IndexedStack(index: _index, children: tabs),
+          body: Column(
+            children: [
+              if (moderation != null)
+                SafeArea(bottom: false, child: ModerationBanner(state: moderation)),
+              Expanded(
+                child: MediaQuery.removePadding(
+                  context: context,
+                  removeTop: moderation != null,
+                  child: IndexedStack(index: _index, children: tabs),
+                ),
+              ),
+            ],
+          ),
           bottomNavigationBar: _NavBar(
             index: _index,
             locked: rideLocked,

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/widgets/email_verification_banner.dart';
 import '../../models/app_mode.dart';
+import '../../models/moderation.dart';
 import '../../services/email_verification_service.dart';
 import '../../models/app_user.dart';
 import '../../services/notification_service.dart';
@@ -95,6 +96,10 @@ class _HomeScreenState extends State<HomeScreen> {
             final status =
                 profileSnapshot.data?.data()?['status'] as String? ??
                 'pending_verification';
+            final suspension = ModerationState.forDriver(profileSnapshot.data?.data());
+            if (suspension != null) {
+              return DriverStatusScreen(rejected: false, suspension: suspension);
+            }
             if (status == 'rejected') {
               return const DriverStatusScreen(rejected: true);
             }

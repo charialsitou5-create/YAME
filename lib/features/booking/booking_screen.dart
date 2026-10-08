@@ -12,6 +12,8 @@ import '../../core/constants/app_config.dart';
 import '../../core/constants/app_strings.dart';
 import '../../core/fare.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/widgets/moderation_notice.dart';
+import '../../models/moderation.dart';
 import '../../models/ride_request.dart';
 import '../../models/vehicle_type.dart';
 import '../../routes/app_routes.dart';
@@ -298,6 +300,35 @@ class _BookingScreenState extends State<BookingScreen> {
         .pushNamedAndRemoveUntil(AppRoutes.onboarding, (route) => false);
   }
 
+  Future<void> _showModerationDialog(ModerationState state) {
+    return showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surfaceElevated,
+        title: Text(
+          state.kind == ModerationKind.blocked
+              ? AppStrings.moderationBlockedTitle
+              : AppStrings.moderationSuspendedTitle,
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(AppStrings.moderationClientCannotRequest),
+            const SizedBox(height: 8),
+            ModerationDetails(state: state),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text(AppStrings.reconnectUnderstood),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _requestDriver() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null || _pickupPosition == null || _destinationPosition == null) {
@@ -315,6 +346,16 @@ class _BookingScreenState extends State<BookingScreen> {
     try {
       final profile = await UserRepository().getUser(user.uid);
       final clientName = profile.data()?['name'] as String? ?? '';
+
+      // Confort : le serveur annule de toute façon la course d'un client
+      // restreint, mais on évite l'aller-retour et on explique pourquoi.
+      final moderation = ModerationState.forClient(profile.data());
+      if (moderation != null) {
+        if (!mounted) return;
+        setState(() => _submittingRequest = false);
+        await _showModerationDialog(moderation);
+        return;
+      }
 
       final request = RideRequest(
         clientUid: user.uid,
