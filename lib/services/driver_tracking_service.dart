@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
+import './error_reporter.dart';
 
 /// Service de suivi GPS en arrière-plan et de diffusion de la position
 /// du chauffeur vers Firestore en temps réel.
@@ -100,7 +101,9 @@ class DriverTrackingService {
         'speed': position_.speed,
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
-    } catch (_) {}
+    } catch (e, st) {
+      ErrorReporter.report(e, st, context: 'driver_tracking.publish_location');
+      }
   }
 
   /// Arrête le suivi GPS du chauffeur

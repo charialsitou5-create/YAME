@@ -23,6 +23,7 @@ import 'payment_screen.dart';
 import 'rating_screen.dart';
 import 'recipient_details_screen.dart';
 import 'share_position_screen.dart';
+import '../../services/error_reporter.dart';
 
 /// Coordonnées approximatives du centre de Pointe-Noire, utilisées tant que
 /// la position de l'utilisateur n'est pas connue.
@@ -137,7 +138,9 @@ class _BookingScreenState extends State<BookingScreen> {
         _lastKnownCenter = LatLng(cached.latitude, cached.longitude);
         try {
           _mapController.move(_lastKnownCenter, 15);
-        } catch (_) {}
+        } catch (e, st) {
+          ErrorReporter.report(e, st, context: 'booking.move_cached_center');
+          }
       }
       final position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
@@ -174,7 +177,9 @@ class _BookingScreenState extends State<BookingScreen> {
     if (animateCamera) {
       try {
         _mapController.move(point, 15);
-      } catch (_) {}
+      } catch (e, st) {
+        ErrorReporter.report(e, st, context: 'booking.move_camera');
+        }
     }
 
     final address = await _reverseGeocode(point);
@@ -246,7 +251,9 @@ class _BookingScreenState extends State<BookingScreen> {
     }
     try {
       _mapController.move(result.point, 15);
-    } catch (_) {}
+    } catch (e, st) {
+      ErrorReporter.report(e, st, context: 'booking.move_to_result');
+      }
   }
 
   Future<void> _editRecipient() async {

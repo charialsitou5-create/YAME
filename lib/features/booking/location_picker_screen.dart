@@ -9,6 +9,7 @@ import 'package:latlong2/latlong.dart';
 import '../../core/constants/app_strings.dart';
 import '../../core/theme/app_colors.dart';
 import '../../services/place_search_service.dart';
+import '../../services/error_reporter.dart';
 
 class PickedLocation {
   const PickedLocation({required this.point, this.address});
@@ -104,7 +105,9 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
             .where((part) => part.isNotEmpty);
         address = parts.isEmpty ? null : parts.join(', ');
       }
-    } catch (_) {}
+    } catch (e, st) {
+      ErrorReporter.report(e, st, context: 'location_picker.reverse_geocode');
+      }
     if (!mounted || seq != _geoSeq) return;
     setState(() => _address = address);
   }

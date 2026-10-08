@@ -18,6 +18,7 @@ import '../../services/driver_tracking_service.dart';
 import '../../services/routing_service.dart';
 import 'contact_passenger_screen.dart';
 import 'recharge_screen.dart';
+import '../../services/error_reporter.dart';
 
 const _pointeNoireCenter = LatLng(-4.7889, 11.8656);
 
@@ -125,7 +126,9 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     _hasFix = true;
     try {
       _mapController.move(p, 15);
-    } catch (_) {}
+    } catch (e, st) {
+      ErrorReporter.report(e, st, context: 'driver_home.move_map_15');
+      }
   }
 
   /// Bouton GPS : relit la vraie position, la publie (le dispatch s'appuie
@@ -144,7 +147,9 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     _hasFix = true;
     try {
       _mapController.move(p, 16);
-    } catch (_) {}
+    } catch (e, st) {
+      ErrorReporter.report(e, st, context: 'driver_home.move_map_16');
+      }
   }
 
   Future<void> _recoverActiveRide() async {
