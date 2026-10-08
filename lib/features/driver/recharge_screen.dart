@@ -256,8 +256,9 @@ class _MobileMoneySheetState extends State<_MobileMoneySheet> {
               ),
               validator: (value) {
                 final amount = num.tryParse(value?.trim() ?? '');
-                if (amount == null || amount <= 0)
+                if (amount == null || amount <= 0) {
                   return AppStrings.rechargeAmountRequired;
+                }
                 return null;
               },
             ),
@@ -270,10 +271,12 @@ class _MobileMoneySheetState extends State<_MobileMoneySheet> {
                 prefixIcon: Icon(Icons.call_outlined),
               ),
               validator: (value) {
-                if (value == null || value.trim().isEmpty)
+                if (value == null || value.trim().isEmpty) {
                   return AppStrings.errorRequired;
-                if (value.trim().length < 8)
+                }
+                if (value.trim().length < 8) {
                   return AppStrings.errorPhoneInvalid;
+                }
                 return null;
               },
             ),

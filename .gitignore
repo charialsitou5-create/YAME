@@ -55,3 +55,4 @@ app.*.map.json
 **/GoogleService-Info.plist
 lib/firebase_options.dart
 
+*-debug.log

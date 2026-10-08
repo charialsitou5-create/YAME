@@ -91,10 +91,12 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                         prefixIcon: Icon(Icons.call_outlined),
                       ),
                       validator: (value) {
-                        if (value == null || value.trim().isEmpty)
+                        if (value == null || value.trim().isEmpty) {
                           return AppStrings.errorRequired;
-                        if (value.trim().length < 8)
+                        }
+                        if (value.trim().length < 8) {
                           return AppStrings.errorPhoneInvalid;
+                        }
                         return null;
                       },
                     ),

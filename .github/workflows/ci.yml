@@ -1,0 +1,31 @@
+name: CI
+
+# Vérifications : pub get, analyse statique, tests.
+# - push (hors main) et pull_request : retour rapide.
+# - workflow_call : appelé par distribute-to-testers.yml, qui n'envoie
+#   l'APK aux testeurs que si ces vérifications réussissent (sur main,
+#   elles tournent donc via ce workflow, pas en doublon).
+on:
+  push:
+    branches-ignore: [main]
+  pull_request:
+  workflow_call:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.1'
+          channel: 'stable'
+
+      - run: flutter pub get
+
+      # --no-fatal-infos : les lints de niveau "info" restants ne cassent
+      # pas la CI ; warnings et erreurs, eux, la cassent.
+      - run: flutter analyze --no-fatal-infos
+
+      - run: flutter test
