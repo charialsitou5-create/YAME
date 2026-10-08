@@ -239,3 +239,16 @@ describe('H2 users : champs de modération', () => {
     await assertSucceeds(setDoc(doc(db('u2'), 'users/u2'), { activeMode: 'client' }));
   });
 });
+
+describe('H3 driver_profiles : champs de modération', () => {
+  it('un chauffeur suspendu ne peut pas lever sa suspension', async () => {
+    await seed((d) => setDoc(doc(d, 'driver_profiles/drv'), { status: 'suspended', suspendedUntil: '2099-01-01T00:00:00Z', moderationReason: 'x', model: 'A' }));
+    await assertFails(updateDoc(doc(db('drv'), 'driver_profiles/drv'), { suspendedUntil: '2020-01-01T00:00:00Z' }));
+    await assertFails(updateDoc(doc(db('drv'), 'driver_profiles/drv'), { moderationReason: null }));
+    await assertFails(updateDoc(doc(db('drv'), 'driver_profiles/drv'), { reviewedBy: 'me' }));
+    await assertSucceeds(updateDoc(doc(db('drv'), 'driver_profiles/drv'), { model: 'B' }));
+  });
+  it('création avec champs de modération refusée', async () => {
+    await assertFails(setDoc(doc(db('drv'), 'driver_profiles/drv'), { status: 'pending_verification', reviewedBy: 'me' }));
+  });
+});

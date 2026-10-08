@@ -79,10 +79,14 @@ service cloud.firestore {
       );
 
       allow create: if request.auth != null && request.auth.uid == driverId
-        && request.resource.data.status == 'pending_verification';
+        && request.resource.data.status == 'pending_verification'
+        && !request.resource.data.keys().hasAny(moderationDriverKeys());
 
+      // `status` et tous les champs de modération (suspendedUntil,
+      // moderationReason, reviewedBy...) sont réservés à yame-admin.
       allow update: if request.auth != null && request.auth.uid == driverId
-        && request.resource.data.status == resource.data.status;
+        && request.resource.data.status == resource.data.status
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(moderationDriverKeys());
 
       allow delete: if false;
 
