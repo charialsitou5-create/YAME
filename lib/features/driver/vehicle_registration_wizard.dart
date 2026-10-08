@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
@@ -10,6 +9,9 @@ import '../../core/constants/app_strings.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/driver_vehicle.dart';
 import '../../models/vehicle_type.dart';
+import '../../repositories/driver_repository.dart';
+import '../../repositories/user_repository.dart';
+import '../../repositories/wallet_repository.dart';
 
 /// Assistant d'inscription du véhicule en 3 étapes : informations,
 /// photos, documents — requis avant qu'un chauffeur reçoive des courses.
@@ -139,30 +141,19 @@ class _VehicleRegistrationWizardState extends State<VehicleRegistrationWizard> {
         licenseUrl: licenseUrl,
       );
 
-      await FirebaseFirestore.instance
-          .collection('driver_profiles')
-          .doc(uid)
-          .set(vehicle.toMap());
+      await DriverRepository().profileRef(uid).set(vehicle.toMap());
       // Solde initialisé à 0 dans sa propre sous-collection, jamais dans
       // la fiche principale (voir firestore.rules : driver_profiles/wallet).
-      await FirebaseFirestore.instance
-          .collection('driver_profiles')
-          .doc(uid)
-          .collection('wallet')
-          .doc('current')
+      await WalletRepository().walletRef(uid)
           .set({'balance': 0});
       // Documents d'identité (carte grise, permis, photos) dans leur propre
       // sous-collection privée (voir firestore.rules : driver_profiles/documents).
       final documentsMap = vehicle.toDocumentsMap();
       if (documentsMap.isNotEmpty) {
-        await FirebaseFirestore.instance
-            .collection('driver_profiles')
-            .doc(uid)
-            .collection('documents')
-            .doc('current')
+        await DriverRepository().documentsRef(uid)
             .set(documentsMap);
       }
-      await FirebaseFirestore.instance.collection('users').doc(uid).update({
+      await UserRepository().updateUser(uid, {
         'vehicleRegistered': true,
       });
 
