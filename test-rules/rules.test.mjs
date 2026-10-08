@@ -8,7 +8,7 @@ import {
   assertFails,
   assertSucceeds,
 } from '@firebase/rules-unit-testing';
-import { doc, getDoc, setDoc, updateDoc, addDoc, collection } from 'firebase/firestore';
+import { doc, getDoc, getDocs, setDoc, updateDoc, addDoc, collection, query, orderBy, limit } from 'firebase/firestore';
 
 let env;
 
@@ -209,6 +209,21 @@ describe('incidents', () => {
     await assertSucceeds(getDoc(doc(db('a'), 'incidents/i1/replies/r1')));
     await assertFails(getDoc(doc(db('b'), 'incidents/i1/replies/r1')));
     await assertFails(setDoc(doc(db('a'), 'incidents/i1/replies/r2'), { author: 'admin', text: 'faux' }));
+  });
+  it('liste des réponses (requête de l\'app, orderBy createdAt) : auteur oui, autre non', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'incidents/i1'), { reporterUid: 'a', status: 'answered' });
+      await setDoc(doc(d, 'incidents/i1/replies/r1'), { text: 'x', createdAt: '2026-10-01T00:00:00Z' });
+    });
+    const q = (uid) => query(collection(db(uid), 'incidents/i1/replies'), orderBy('createdAt'), limit(5));
+    const snap = await assertSucceeds(getDocs(q('a')));
+    if (snap.size !== 1) throw new Error('réponse attendue');
+    await assertFails(getDocs(q('b')));
+  });
+  it('l\'app mémorise ses signalements dans son propre profil (myReports), pas ceux d\'autrui', async () => {
+    await seed((d) => setDoc(doc(d, 'users/a'), { activeMode: 'client' }));
+    await assertSucceeds(updateDoc(doc(db('a'), 'users/a'), { myReports: [{ id: 'i1', message: 'm' }] }));
+    await assertFails(updateDoc(doc(db('b'), 'users/a'), { myReports: [] }));
   });
   it('création en open pour soi seulement, jamais modifiable', async () => {
     await assertSucceeds(setDoc(doc(db('a'), 'incidents/i2'), { reporterUid: 'a', status: 'open' }));

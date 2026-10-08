@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants/app_strings.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/widgets/moderation_notice.dart';
+import '../../models/moderation.dart';
 import '../../routes/app_routes.dart';
 import '../home/profil_screen.dart';
 
@@ -10,9 +12,13 @@ import '../home/profil_screen.dart';
 /// véhicule d'un chauffeur n'a pas été validée (ou a été refusée) par
 /// un admin — `driver_profiles/{uid}.status`.
 class DriverStatusScreen extends StatelessWidget {
-  const DriverStatusScreen({super.key, required this.rejected});
+  const DriverStatusScreen({super.key, required this.rejected, this.suspension});
 
   final bool rejected;
+
+  /// Si non nul, le chauffeur est suspendu : avis avec motif/échéance, et
+  /// aucun accès au mode en ligne.
+  final ModerationState? suspension;
 
   Future<void> _logout(BuildContext context) async {
     await FirebaseAuth.instance.signOut();
@@ -69,24 +75,28 @@ class DriverStatusScreen extends StatelessWidget {
                         color: AppColors.surfaceElevated,
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: rejected
+                          color: (rejected || suspension != null)
                               ? AppColors.error.withValues(alpha: 0.4)
                               : AppColors.border,
                         ),
                       ),
                       child: Icon(
-                        rejected
+                        suspension != null
+                            ? Icons.block_rounded
+                            : rejected
                             ? Icons.error_outline_rounded
                             : Icons.hourglass_top_rounded,
                         size: 36,
-                        color: rejected
+                        color: (rejected || suspension != null)
                             ? AppColors.error
                             : AppColors.accentBright,
                       ),
                     ),
                     const SizedBox(height: 24),
                     Text(
-                      rejected
+                      suspension != null
+                          ? AppStrings.moderationSuspendedTitle
+                          : rejected
                           ? AppStrings.driverRejectedTitle
                           : AppStrings.driverPendingTitle,
                       textAlign: TextAlign.center,
@@ -94,13 +104,22 @@ class DriverStatusScreen extends StatelessWidget {
                           ?.copyWith(fontSize: 22),
                     ),
                     const SizedBox(height: 12),
-                    Text(
-                      rejected
-                          ? AppStrings.driverRejectedBody
-                          : AppStrings.driverPendingBody,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyLarge,
-                    ),
+                    if (suspension != null) ...[
+                      Text(
+                        AppStrings.moderationDriverCannotGoOnline,
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodyLarge,
+                      ),
+                      const SizedBox(height: 8),
+                      ModerationDetails(state: suspension!, textAlign: TextAlign.center),
+                    ] else
+                      Text(
+                        rejected
+                            ? AppStrings.driverRejectedBody
+                            : AppStrings.driverPendingBody,
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodyLarge,
+                      ),
                     const Spacer(),
                   ],
                 ),

@@ -6,6 +6,7 @@ import '../../core/constants/app_strings.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/app_user.dart';
 import '../../routes/app_routes.dart';
+import '../support/my_reports_screen.dart';
 import '../support/report_issue_screen.dart';
 import 'personal_info_screen.dart';
 import 'settings_screen.dart';
@@ -195,6 +196,17 @@ class ProfilScreen extends StatelessWidget {
                         ),
                       ),
                     ),
+                    if (uid != null) ...[
+                      const RowDivider(),
+                      SettingsRow(
+                        icon: Icons.forum_outlined,
+                        title: AppStrings.myReportsEntry,
+                        subtitle: AppStrings.myReportsTitle,
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => MyReportsScreen(uid: uid)),
+                        ),
+                      ),
+                    ],
                     const RowDivider(),
                     SettingsRow(
                       icon: Icons.info_outline_rounded,

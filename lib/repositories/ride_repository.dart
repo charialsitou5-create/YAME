@@ -101,5 +101,7 @@ class RideRepository {
 
   WriteBatch batch() => _db.batch();
 
-  Future<void> addIncident(Json data) => _db.collection('incidents').add(data);
+  /// Crée un signalement et renvoie son id.
+  Future<String> addIncident(Json data) async =>
+      (await _db.collection('incidents').add(data)).id;
 }

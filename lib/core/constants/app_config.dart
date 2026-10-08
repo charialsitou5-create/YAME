@@ -13,4 +13,10 @@ class AppConfig {
   static const defaultMapCenter = LatLng(-4.7889, 11.8656);
 
   static const adminApiBaseUrl = 'https://yame-admin.vercel.app';
+
+  /// Si `true`, un compte e-mail/mot de passe dont l'adresse n'est pas
+  /// vérifiée ne peut ni commander une course ni passer en ligne. Désactivé
+  /// par défaut : le bandeau « Vérifiez votre e-mail » reste alors purement
+  /// informatif (non bloquant).
+  static const requireVerifiedEmail = false;
 }

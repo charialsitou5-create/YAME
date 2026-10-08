@@ -7,6 +7,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/widgets/social_button.dart';
 import '../../routes/app_routes.dart';
 import '../../services/social_auth_service.dart';
+import 'forgot_password_screen.dart';
 
 /// Connexion par e-mail + mot de passe.
 class LoginScreen extends StatefulWidget {
@@ -164,7 +165,22 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(height: 14),
                       Text(_errorMessage!, style: const TextStyle(color: AppColors.error)),
                     ],
-                    const SizedBox(height: 24),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: _submitting
+                            ? null
+                            : () => Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => ForgotPasswordScreen(
+                                      initialEmail: _emailController.text.trim(),
+                                    ),
+                                  ),
+                                ),
+                        child: const Text(AppStrings.forgotPasswordLink),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     ElevatedButton(
                       onPressed: _submitting ? null : _submit,
                       child: _submitting
