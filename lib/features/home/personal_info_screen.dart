@@ -1,9 +1,9 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_strings.dart';
 import '../../core/theme/app_colors.dart';
+import '../../repositories/user_repository.dart';
 
 /// Édition des informations de compte (nom, téléphone) et changement de mot
 /// de passe. L'e-mail n'est volontairement pas modifiable ici : c'est
@@ -46,7 +46,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
 
     setState(() => _saving = true);
     try {
-      await FirebaseFirestore.instance.collection('users').doc(uid).update({
+      await UserRepository().updateUser(uid, {
         'name': _nameController.text.trim(),
         'phone': _phoneController.text.trim(),
       });
