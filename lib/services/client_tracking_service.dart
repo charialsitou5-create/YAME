@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:geolocator/geolocator.dart';
 import './error_reporter.dart';
+import '../repositories/user_repository.dart';
 
 /// Service de suivi GPS en arrière-plan côté client, actif pendant qu'une
 /// course est en cours (demandée → résolue) : diffuse la position vers
@@ -45,11 +46,7 @@ class ClientTrackingService {
 
   Future<void> _updateClientLocationInFirestore(String uid, Position position) async {
     try {
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .collection('location')
-          .doc('current')
+      await UserRepository().clientLocationRef(uid)
           .set({
         'lat': position.latitude,
         'lng': position.longitude,
@@ -73,11 +70,7 @@ class ClientTrackingService {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
     try {
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .collection('location')
-          .doc('current')
+      await UserRepository().clientLocationRef(uid)
           .set({'activeDriverUid': FieldValue.delete()}, SetOptions(merge: true));
     } catch (e, st) {
       ErrorReporter.report(e, st, context: 'client_tracking.clear_active_driver');
