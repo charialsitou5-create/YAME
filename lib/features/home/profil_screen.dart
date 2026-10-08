@@ -13,6 +13,9 @@ import '../driver/vehicle_registration_wizard.dart';
 import '../support/report_issue_screen.dart';
 import 'personal_info_screen.dart';
 import 'settings_screen.dart';
+import '../../repositories/driver_repository.dart';
+import '../../repositories/user_repository.dart';
+import '../../repositories/wallet_repository.dart';
 
 /// Onglet Profil : identité, activités, réglages du compte.
 class ProfilScreen extends StatelessWidget {
@@ -42,13 +45,10 @@ class ProfilScreen extends StatelessWidget {
     // `DriverHomeScreen` quand tout l'arbre de widgets est démonté ci-dessous.
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid != null) {
-      final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      final doc = await UserRepository().getUser(uid);
       final data = doc.data();
       if (data?['activeMode'] == 'driver' && data?['driverOnline'] == true) {
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(uid)
-            .update({'driverOnline': false});
+        await UserRepository().updateUser(uid, {'driverOnline': false});
       }
     }
     await FirebaseAuth.instance.signOut();
@@ -65,10 +65,7 @@ class ProfilScreen extends StatelessWidget {
       child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
         stream: uid == null
             ? null
-            : FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(uid)
-                  .snapshots(),
+            : UserRepository().watchUser(uid),
         builder: (context, snapshot) {
           final data = snapshot.data?.data();
           final user = (uid != null && data != null)
@@ -534,7 +531,7 @@ class _DriverSection extends StatelessWidget {
     );
     if (type == null || !context.mounted) return;
 
-    await FirebaseFirestore.instance.collection('users').doc(uid).update({
+    await UserRepository().updateUser(uid, {
       'driverVehicleType': type.name,
     });
     if (!context.mounted) return;
@@ -544,7 +541,7 @@ class _DriverSection extends StatelessWidget {
   }
 
   Future<void> _switchMode(AppMode newMode) {
-    return FirebaseFirestore.instance.collection('users').doc(uid).update({
+    return UserRepository().updateUser(uid, {
       'activeMode': newMode.firestoreValue,
     });
   }
@@ -570,7 +567,7 @@ class _DriverSection extends StatelessWidget {
     }
 
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance.collection('driver_profiles').doc(uid).snapshots(),
+      stream: DriverRepository().watchProfile(uid),
       builder: (context, snapshot) {
         final status = snapshot.data?.data()?['status'] as String? ?? 'pending_verification';
 
@@ -627,12 +624,7 @@ class _DriverWalletRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance
-          .collection('driver_profiles')
-          .doc(uid)
-          .collection('wallet')
-          .doc('current')
-          .snapshots(),
+      stream: WalletRepository().watchWallet(uid),
       builder: (context, snapshot) {
         final balance = snapshot.data?.data()?['balance'] as int? ?? 0;
         final earnings = snapshot.data?.data()?['earningsBalance'] as int? ?? 0;
