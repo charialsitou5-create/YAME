@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../../core/constants/app_config.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../models/ride_request.dart';
 import '../../../repositories/driver_repository.dart';
@@ -10,8 +11,6 @@ import '../../../repositories/ride_repository.dart';
 import '../../../repositories/user_repository.dart';
 import '../../../services/routing_service.dart';
 import 'map_control_button.dart';
-
-const pointeNoireCenter = LatLng(-4.7889, 11.8656);
 
 /// Carte de l'écran chauffeur : position du chauffeur, point de départ,
 /// position du client et itinéraire courant.
@@ -49,7 +48,7 @@ class DriverMapPanel extends StatelessWidget {
               FlutterMap(
                 mapController: mapController,
                 options: const MapOptions(
-                  initialCenter: pointeNoireCenter,
+                  initialCenter: AppConfig.defaultMapCenter,
                   initialZoom: 13,
                 ),
                 children: [

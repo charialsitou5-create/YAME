@@ -8,6 +8,7 @@ import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../core/constants/app_config.dart';
 import '../../core/constants/app_strings.dart';
 import '../../core/fare.dart';
 import '../../core/theme/app_colors.dart';
@@ -27,10 +28,6 @@ import '../../services/error_reporter.dart';
 import '../../repositories/driver_repository.dart';
 import '../../repositories/ride_repository.dart';
 import '../../repositories/user_repository.dart';
-
-/// Coordonnées approximatives du centre de Pointe-Noire, utilisées tant que
-/// la position de l'utilisateur n'est pas connue.
-const _pointeNoireCenter = LatLng(-4.7889, 11.8656);
 
 class BookingScreen extends StatefulWidget {
   const BookingScreen({super.key, this.initialVehicleType = VehicleType.car});
@@ -54,7 +51,7 @@ class _BookingScreenState extends State<BookingScreen> {
   late VehicleType _vehicleType = widget.initialVehicleType;
 
   /// Dernier point connu de l'utilisateur (sinon Pointe-Noire par défaut).
-  LatLng _lastKnownCenter = _pointeNoireCenter;
+  LatLng _lastKnownCenter = AppConfig.defaultMapCenter;
   bool _locating = true;
   String? _locationError;
 
@@ -458,7 +455,7 @@ class _BookingScreenState extends State<BookingScreen> {
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
-              initialCenter: _pointeNoireCenter,
+              initialCenter: AppConfig.defaultMapCenter,
               initialZoom: 13,
             ),
             children: [
