@@ -17,12 +17,12 @@ import '../../routes/app_routes.dart';
 import '../../services/client_tracking_service.dart';
 import '../../services/dispatch_service.dart';
 import '../../services/routing_service.dart';
-import 'cancel_reason_screen.dart';
 import 'location_picker_screen.dart';
-import 'payment_screen.dart';
-import 'rating_screen.dart';
 import 'recipient_details_screen.dart';
-import 'share_position_screen.dart';
+import 'widgets/booking_panel.dart';
+import 'widgets/ride_status_panel.dart';
+import 'widgets/status_pill.dart';
+import 'widgets/pick_mode.dart';
 import '../../services/error_reporter.dart';
 import '../../repositories/driver_repository.dart';
 import '../../repositories/ride_repository.dart';
@@ -31,8 +31,6 @@ import '../../repositories/user_repository.dart';
 /// Coordonnées approximatives du centre de Pointe-Noire, utilisées tant que
 /// la position de l'utilisateur n'est pas connue.
 const _pointeNoireCenter = LatLng(-4.7889, 11.8656);
-
-enum _PickMode { pickup, destination }
 
 class BookingScreen extends StatefulWidget {
   const BookingScreen({super.key, this.initialVehicleType = VehicleType.car});
@@ -52,7 +50,7 @@ class _BookingScreenState extends State<BookingScreen> {
   String? _pickupAddress;
   String? _destinationAddress;
 
-  _PickMode _pickMode = _PickMode.pickup;
+  PickMode _pickMode = PickMode.pickup;
   late VehicleType _vehicleType = widget.initialVehicleType;
 
   /// Dernier point connu de l'utilisateur (sinon Pointe-Noire par défaut).
@@ -150,7 +148,7 @@ class _BookingScreenState extends State<BookingScreen> {
       );
       final latLng = LatLng(position.latitude, position.longitude);
       _lastKnownCenter = latLng;
-      await _setPoint(_PickMode.pickup, latLng, animateCamera: true);
+      await _setPoint(PickMode.pickup, latLng, animateCamera: true);
     } catch (_) {
       if (mounted)
         setState(() => _locationError = AppStrings.bookingLocationDenied);
@@ -160,12 +158,12 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   Future<void> _setPoint(
-    _PickMode mode,
+    PickMode mode,
     LatLng point, {
     bool animateCamera = false,
   }) async {
     setState(() {
-      if (mode == _PickMode.pickup) {
+      if (mode == PickMode.pickup) {
         _pickupPosition = point;
         _pickupAddress = null;
       } else {
@@ -185,7 +183,7 @@ class _BookingScreenState extends State<BookingScreen> {
     final address = await _reverseGeocode(point);
     if (!mounted) return;
     setState(() {
-      if (mode == _PickMode.pickup) {
+      if (mode == PickMode.pickup) {
         _pickupAddress = address;
       } else {
         _destinationAddress = address;
@@ -213,8 +211,8 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   /// Ouvre la carte plein écran (avec recherche écrite) pour le champ touché.
-  Future<void> _pickOnFullMap(_PickMode mode) async {
-    final isPickup = mode == _PickMode.pickup;
+  Future<void> _pickOnFullMap(PickMode mode) async {
+    final isPickup = mode == PickMode.pickup;
     final current = isPickup ? _pickupPosition : _destinationPosition;
     final result = await Navigator.of(context).push<PickedLocation>(
       MaterialPageRoute(
@@ -587,7 +585,7 @@ class _BookingScreenState extends State<BookingScreen> {
               left: 0,
               right: 0,
               child: Center(
-                child: const _StatusPill(
+                child: const StatusPill(
                   icon: Icons.my_location,
                   text: AppStrings.bookingLocatingMe,
                 ),
@@ -599,7 +597,7 @@ class _BookingScreenState extends State<BookingScreen> {
               left: 24,
               right: 24,
               child: Center(
-                child: _StatusPill(
+                child: StatusPill(
                   icon: Icons.location_off,
                   text: _locationError!,
                 ),
@@ -631,7 +629,7 @@ class _BookingScreenState extends State<BookingScreen> {
           Align(
             alignment: Alignment.bottomCenter,
             child: _activeRequestId == null
-                ? _BookingPanel(
+                ? BookingPanel(
                     pickMode: _pickMode,
                     vehicleType: _vehicleType,
                     pickupAddress: _pickupAddress,
@@ -668,7 +666,7 @@ class _BookingScreenState extends State<BookingScreen> {
                           UserRepository().updateUser(uid, {'clientActiveRideId': null});
                         }
                       }
-                      return _RideStatusPanel(
+                      return RideStatusPanel(
                         status: ride?.status ?? RideStatus.searching,
                         ride: ride,
                         eta: _route?.duration,
@@ -680,611 +678,6 @@ class _BookingScreenState extends State<BookingScreen> {
                   ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _StatusPill extends StatelessWidget {
-  const _StatusPill({required this.icon, required this.text});
-
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: AppColors.accent),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Text(text, style: Theme.of(context).textTheme.bodyMedium),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _BookingPanel extends StatelessWidget {
-  const _BookingPanel({
-    required this.pickMode,
-    required this.vehicleType,
-    required this.pickupAddress,
-    required this.destinationAddress,
-    required this.hasPickup,
-    required this.hasDestination,
-    required this.estimatedPrice,
-    required this.canRequest,
-    required this.submitting,
-    required this.recipient,
-    required this.onPick,
-    required this.onVehicleChanged,
-    required this.onRequest,
-    required this.onEditRecipient,
-    required this.onClearRecipient,
-  });
-
-  final _PickMode pickMode;
-  final VehicleType vehicleType;
-  final String? pickupAddress;
-  final String? destinationAddress;
-  final bool hasPickup;
-  final bool hasDestination;
-  final int? estimatedPrice;
-  final bool canRequest;
-  final bool submitting;
-  final RideRecipient? recipient;
-  final ValueChanged<_PickMode> onPick;
-  final ValueChanged<VehicleType> onVehicleChanged;
-  final VoidCallback onRequest;
-  final VoidCallback onEditRecipient;
-  final VoidCallback onClearRecipient;
-
-  @override
-  Widget build(BuildContext context) {
-    return ConstrainedBox(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.65,
-      ),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
-        decoration: const BoxDecoration(
-          color: AppColors.surfaceElevated,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _LocationTile(
-                icon: Icons.circle,
-                iconColor: AppColors.success,
-                label: AppStrings.bookingPickupLabel,
-                value: pickupAddress,
-                hint: AppStrings.bookingPickupHint,
-                selected: pickMode == _PickMode.pickup,
-                hasPoint: hasPickup,
-                onTap: () => onPick(_PickMode.pickup),
-              ),
-              const SizedBox(height: 10),
-              _LocationTile(
-                icon: Icons.location_on,
-                iconColor: AppColors.accent,
-                label: AppStrings.bookingDestinationLabel,
-                value: destinationAddress,
-                hint: AppStrings.bookingDestinationHint,
-                selected: pickMode == _PickMode.destination,
-                hasPoint: hasDestination,
-                onTap: () => onPick(_PickMode.destination),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: VehicleType.values.map((type) {
-                  final selected = type == vehicleType;
-                  return Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.only(
-                        right: type == VehicleType.values.first ? 10 : 0,
-                      ),
-                      child: _VehicleTypeCard(
-                        type: type,
-                        selected: selected,
-                        onTap: () => onVehicleChanged(type),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 14),
-              _RecipientRow(
-                recipient: recipient,
-                onEdit: onEditRecipient,
-                onClear: onClearRecipient,
-              ),
-              if (estimatedPrice != null) ...[
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    Text(
-                      AppStrings.bookingEstimatedPrice,
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                    const Spacer(),
-                    Flexible(
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerRight,
-                        child: Text(
-                          '${formatFcfa(estimatedPrice!)} FCFA',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 17,
-                            color: AppColors.accent,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: (canRequest && !submitting) ? onRequest : null,
-                child: submitting
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text(AppStrings.bookingCta),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _VehicleTypeCard extends StatelessWidget {
-  const _VehicleTypeCard({
-    required this.type,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final VehicleType type;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: selected
-          ? AppColors.accent.withValues(alpha: 0.12)
-          : AppColors.fieldFill,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: selected ? AppColors.accent : AppColors.border,
-            ),
-          ),
-          child: Column(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: AppColors.accent.withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  type == VehicleType.car
-                      ? Icons.directions_car_filled_rounded
-                      : Icons.two_wheeler_rounded,
-                  size: 18,
-                  color: AppColors.accent,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                type.label,
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                  color: selected ? AppColors.accent : AppColors.textPrimary,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _RecipientRow extends StatelessWidget {
-  const _RecipientRow({
-    required this.recipient,
-    required this.onEdit,
-    required this.onClear,
-  });
-
-  final RideRecipient? recipient;
-  final VoidCallback onEdit;
-  final VoidCallback onClear;
-
-  @override
-  Widget build(BuildContext context) {
-    final recipient = this.recipient;
-    if (recipient == null) {
-      return InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onEdit,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Row(
-            children: [
-              const Icon(
-                Icons.person_add_alt_rounded,
-                size: 18,
-                color: AppColors.textSecondary,
-              ),
-              const SizedBox(width: 10),
-              Text(
-                AppStrings.orderForSomeoneCta,
-                style: Theme.of(context).textTheme.bodyMedium
-                    ?.copyWith(color: AppColors.textSecondary),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return InkWell(
-      borderRadius: BorderRadius.circular(12),
-      onTap: onEdit,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.person_rounded, size: 16, color: AppColors.accent),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                '${AppStrings.orderForSomeonePrefix}${recipient.name}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-            ),
-            IconButton(
-              onPressed: onClear,
-              tooltip: AppStrings.orderForSomeoneClear,
-              icon: const Icon(
-                Icons.close_rounded,
-                size: 18,
-                color: AppColors.textSecondary,
-              ),
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _RideStatusPanel extends StatelessWidget {
-  const _RideStatusPanel({
-    required this.status,
-    required this.ride,
-    required this.eta,
-    required this.onCancel,
-    required this.onNewBooking,
-  });
-
-  final RideStatus status;
-  final RideRequest? ride;
-
-  /// Durée estimée du trajet en cours (chauffeur → point de départ), calculée
-  /// via `RoutingService` (OSRM) — `null` tant qu'aucun itinéraire n'a
-  /// encore été reçu (pas d'affichage plutôt qu'un placeholder trompeur).
-  final Duration? eta;
-  final void Function(String reason, String? comment) onCancel;
-  final VoidCallback onNewBooking;
-
-  Future<void> _cancelWithReason(BuildContext context) async {
-    final result = await Navigator.of(context).push<CancelReason>(
-      MaterialPageRoute(builder: (_) => const CancelReasonScreen()),
-    );
-    if (result != null) onCancel(result.reason, result.comment);
-  }
-
-  Future<void> _rateDriver(BuildContext context) async {
-    final id = ride?.id;
-    if (id == null) return;
-    await Navigator.of(context)
-        .push(MaterialPageRoute(builder: (_) => RatingScreen(rideId: id)));
-    onNewBooking();
-  }
-
-  Future<void> _payRide(BuildContext context) async {
-    final currentRide = ride;
-    if (currentRide == null) return;
-    await Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => PaymentScreen(ride: currentRide)));
-    onNewBooking();
-  }
-
-  Future<void> _sharePosition(BuildContext context) async {
-    try {
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        throw StateError('denied');
-      }
-      final position = await Geolocator.getCurrentPosition();
-      final point = LatLng(position.latitude, position.longitude);
-      final link =
-          'https://maps.google.com/?q=${position.latitude},${position.longitude}';
-      if (!context.mounted) return;
-      await Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => SharePositionScreen(position: point, link: link),
-        ),
-      );
-    } catch (_) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppStrings.bookingSharePositionError)),
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 28),
-      decoration: const BoxDecoration(
-        color: AppColors.surfaceElevated,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: switch (status) {
-          RideStatus.searching => [
-            const Row(
-              children: [
-                SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: AppColors.accent,
-                  ),
-                ),
-                SizedBox(width: 14),
-                Expanded(child: Text(AppStrings.bookingSearching)),
-              ],
-            ),
-            const SizedBox(height: 20),
-            OutlinedButton(
-              onPressed: () => _cancelWithReason(context),
-              child: const Text(AppStrings.bookingCancel),
-            ),
-          ],
-          RideStatus.accepted => [
-            Text(
-              AppStrings.bookingAccepted,
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              '${ride?.driverName?.isNotEmpty == true ? ride!.driverName : AppStrings.driverClient} ${AppStrings.bookingDriverOnTheWay}',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            if (eta != null) ...[
-              const SizedBox(height: 6),
-              Text(
-                '${AppStrings.bookingDriverEtaPrefix} ${formatEta(eta!)}',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.accent,
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-            ],
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: () => _sharePosition(context),
-              icon: const Icon(Icons.share_location_rounded, size: 18),
-              label: const Text(AppStrings.bookingSharePosition),
-            ),
-            const SizedBox(height: 10),
-            OutlinedButton(
-              onPressed: () => _cancelWithReason(context),
-              child: const Text(AppStrings.bookingCancel),
-            ),
-          ],
-          RideStatus.arrived => [
-            Text(
-              AppStrings.bookingArrivedTitle,
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              AppStrings.bookingArrivedBody,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: () => _sharePosition(context),
-              icon: const Icon(Icons.share_location_rounded, size: 18),
-              label: const Text(AppStrings.bookingSharePosition),
-            ),
-            const SizedBox(height: 10),
-            OutlinedButton(
-              onPressed: () => _cancelWithReason(context),
-              child: const Text(AppStrings.bookingCancel),
-            ),
-          ],
-          RideStatus.inProgress => [
-            Text(
-              AppStrings.bookingInProgressTitle,
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              AppStrings.bookingInProgressBody,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            if (eta != null) ...[
-              const SizedBox(height: 6),
-              Text(
-                '${AppStrings.bookingDriverEtaPrefix} ${formatEta(eta!)}',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.accent,
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-            ],
-          ],
-          RideStatus.completed => [
-            Text(
-              AppStrings.bookingCompletedTitle,
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () => _payRide(context),
-              child: const Text(AppStrings.bookingPayRide),
-            ),
-            const SizedBox(height: 10),
-            OutlinedButton(
-              onPressed: () => _rateDriver(context),
-              child: const Text(AppStrings.bookingRateDriver),
-            ),
-            const SizedBox(height: 10),
-            TextButton(
-              onPressed: onNewBooking,
-              child: const Text(AppStrings.bookingNewRequest),
-            ),
-          ],
-          RideStatus.cancelled => [
-            Text(
-              AppStrings.bookingCancelled,
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: onNewBooking,
-              child: const Text(AppStrings.bookingNewRequest),
-            ),
-          ],
-          RideStatus.noDriverFound => [
-            Text(
-              AppStrings.bookingNoDriverFoundTitle,
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              AppStrings.bookingNoDriverFoundBody,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: onNewBooking,
-              child: const Text(AppStrings.bookingNewRequest),
-            ),
-          ],
-        },
-      ),
-    );
-  }
-}
-
-class _LocationTile extends StatelessWidget {
-  const _LocationTile({
-    required this.icon,
-    required this.iconColor,
-    required this.label,
-    required this.value,
-    required this.hint,
-    required this.selected,
-    required this.hasPoint,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final Color iconColor;
-  final String label;
-  final String? value;
-  final String hint;
-  final bool selected;
-  final bool hasPoint;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(12),
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: selected ? AppColors.accent : AppColors.border,
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 14, color: iconColor),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(label, style: Theme.of(context).textTheme.bodyMedium),
-                  Text(
-                    hasPoint ? (value ?? '…') : hint,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodyLarge,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
