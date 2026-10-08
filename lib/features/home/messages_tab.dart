@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../core/constants/app_strings.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/ride_request.dart';
+import '../../repositories/ride_repository.dart';
 import 'ride_chat_screen.dart';
 
 /// Onglet Messages : affiche la conversation avec le chauffeur assigné à
@@ -23,16 +24,11 @@ class MessagesTab extends StatelessWidget {
       child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
         stream: uid == null
             ? null
-            : FirebaseFirestore.instance
-                .collection('ride_requests')
-                .where('clientUid', isEqualTo: uid)
-                .where('status', whereIn: [
-                  RideStatus.accepted.firestoreValue,
-                  RideStatus.arrived.firestoreValue,
-                  RideStatus.inProgress.firestoreValue,
-                ])
-                .limit(1)
-                .snapshots(),
+            : RideRepository().watchClientRidesWithStatus(uid, [
+                RideStatus.accepted.firestoreValue,
+                RideStatus.arrived.firestoreValue,
+                RideStatus.inProgress.firestoreValue,
+              ]),
         builder: (context, snapshot) {
           final docs = snapshot.data?.docs ?? [];
           if (docs.isEmpty) {
