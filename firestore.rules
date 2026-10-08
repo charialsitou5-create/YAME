@@ -153,7 +153,15 @@ service cloud.firestore {
       allow create: if request.auth != null
         && request.resource.data.clientUid == request.auth.uid
         && request.resource.data.status == 'searching'
-        && request.resource.data.get('offeredUid', null) == null;
+        && request.resource.data.get('offeredUid', null) == null
+        && request.resource.data.get('driverUid', null) == null
+        // Champs financiers posés uniquement par yame-admin (paiement,
+        // commission, remboursement) : un client ne peut pas les forger.
+        && !request.resource.data.keys().hasAny([
+          'paymentStatus', 'paymentAmount', 'paymentMethod', 'paidAt',
+          'commissionStatus', 'commissionAmount', 'driverNetAmount',
+          'refundStatus', 'refundAmount', 'fare'
+        ]);
 
       allow update: if request.auth != null && (
         // le client annule sa propre demande tant que la course n'a pas

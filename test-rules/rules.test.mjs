@@ -252,3 +252,13 @@ describe('H3 driver_profiles : champs de modération', () => {
     await assertFails(setDoc(doc(db('drv'), 'driver_profiles/drv'), { status: 'pending_verification', reviewedBy: 'me' }));
   });
 });
+
+describe('H4 ride_requests : champs financiers non forgeables', () => {
+  it('un client ne peut pas poser commissionStatus / paymentStatus / driverUid à la création', async () => {
+    await assertFails(setDoc(doc(db('cli'), 'ride_requests/r1'), ride({ commissionStatus: 'charged' })));
+    await assertFails(setDoc(doc(db('cli'), 'ride_requests/r1'), ride({ paymentStatus: 'paid' })));
+    await assertFails(setDoc(doc(db('cli'), 'ride_requests/r1'), ride({ refundStatus: 'refunded' })));
+    await assertFails(setDoc(doc(db('cli'), 'ride_requests/r1'), ride({ driverUid: 'complice' })));
+    await assertSucceeds(setDoc(doc(db('cli'), 'ride_requests/r1'), ride({ price: 2000 })));
+  });
+});
