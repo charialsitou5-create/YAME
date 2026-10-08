@@ -1,9 +1,9 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_strings.dart';
 import '../../core/theme/app_colors.dart';
+import '../../repositories/ride_repository.dart';
 import '../../repositories/user_repository.dart';
 
 enum _ReportKind { incident, feedback }
@@ -58,7 +58,7 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
       final userDoc = await UserRepository().getUser(user.uid);
       final userData = userDoc.data();
 
-      await FirebaseFirestore.instance.collection('incidents').add({
+      await RideRepository().addIncident({
         'kind': _kind.name,
         'category': _category,
         'message': _messageController.text.trim(),
