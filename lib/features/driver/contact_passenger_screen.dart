@@ -1,10 +1,10 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/constants/app_strings.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/ride_request.dart';
+import '../../repositories/user_repository.dart';
 
 /// Coordonnées du passager à contacter pour une course : soit la personne
 /// pour qui la course a été commandée (destinataire), soit le demandeur
@@ -43,10 +43,7 @@ class _ContactPassengerScreenState extends State<ContactPassengerScreen> {
   Future<void> _loadRequesterPhone() async {
     setState(() => _loadingPhone = true);
     try {
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(widget.ride.clientUid)
-          .get();
+      final doc = await UserRepository().getUser(widget.ride.clientUid);
       if (!mounted) return;
       setState(() => _phone = doc.data()?['phone'] as String?);
     } finally {

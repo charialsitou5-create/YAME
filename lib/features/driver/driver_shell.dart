@@ -8,6 +8,7 @@ import '../../core/widgets/nav_bar_item.dart';
 import '../../models/vehicle_type.dart';
 import '../home/profil_screen.dart';
 import 'driver_home_screen.dart';
+import '../../repositories/user_repository.dart';
 
 /// Coque avec barre de navigation pour l'espace chauffeur : Accueil / Profil
 /// — miroir de `ClientShell` pour que les deux rôles se ressemblent. Regroupe
@@ -39,7 +40,7 @@ class _DriverShellState extends State<DriverShell> {
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
       stream: uid == null
           ? null
-          : FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
+          : UserRepository().watchUser(uid),
       builder: (context, snapshot) {
         final rideLocked = snapshot.data?.data()?['driverActiveRideId'] != null;
 

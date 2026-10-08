@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../app.dart';
+import '../repositories/user_repository.dart';
 
 /// Service gérant l'enregistrement des tokens Push FCM et la réception
 /// des notifications en direct sur les téléphones clients et chauffeurs.
@@ -14,7 +15,7 @@ class NotificationService {
   bool _foregroundListenerAttached = false;
 
   Future<void> _writeToken(String uid, String token) {
-    return FirebaseFirestore.instance.collection('users').doc(uid).set({
+    return UserRepository().setUser(uid, {
       'fcmToken': token,
       'lastTokenUpdate': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));

@@ -1,9 +1,9 @@
 import 'dart:math';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../models/vehicle_type.dart';
+import '../repositories/config_repository.dart';
 
 /// Tarif d'un type de véhicule : prise en charge + prix au kilomètre (FCFA).
 class VehicleFare {
@@ -49,10 +49,8 @@ class FarePricing {
 /// Charge la grille depuis Firestore ; n'échoue jamais (secours : [FarePricing.defaults]).
 Future<FarePricing> loadFarePricing() async {
   try {
-    final snap = await FirebaseFirestore.instance
-        .collection('app_config')
-        .doc('pricing')
-        .get()
+    final snap = await ConfigRepository()
+        .getPricing()
         .timeout(const Duration(seconds: 5));
     return FarePricing.fromMap(snap.data());
   } catch (_) {

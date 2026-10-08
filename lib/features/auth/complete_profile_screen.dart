@@ -1,10 +1,10 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_strings.dart';
 import '../../core/theme/app_colors.dart';
 import '../../routes/app_routes.dart';
+import '../../repositories/user_repository.dart';
 
 /// Réclame le numéro de téléphone après une première connexion
 /// Google/Facebook — ni l'un ni l'autre ne le communique, alors qu'il est
@@ -39,7 +39,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
 
     try {
       final uid = FirebaseAuth.instance.currentUser!.uid;
-      await FirebaseFirestore.instance.collection('users').doc(uid).update({
+      await UserRepository().updateUser(uid, {
         'phone': _phoneController.text.trim(),
       });
 

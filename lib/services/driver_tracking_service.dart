@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import './error_reporter.dart';
+import '../repositories/driver_repository.dart';
 
 /// Service de suivi GPS en arrière-plan et de diffusion de la position
 /// du chauffeur vers Firestore en temps réel.
@@ -89,11 +90,7 @@ class DriverTrackingService {
   Future<void> _updateDriverLocationInFirestore(String uid, Position position_) async {
     position.value = LatLng(position_.latitude, position_.longitude);
     try {
-      await FirebaseFirestore.instance
-          .collection('driver_profiles')
-          .doc(uid)
-          .collection('location')
-          .doc('current')
+      await DriverRepository().locationRef(uid)
           .set({
         'lat': position_.latitude,
         'lng': position_.longitude,

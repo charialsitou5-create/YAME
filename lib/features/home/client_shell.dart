@@ -10,6 +10,7 @@ import '../booking/booking_screen.dart';
 import 'client_home_tab.dart';
 import 'messages_tab.dart';
 import 'profil_screen.dart';
+import '../../repositories/user_repository.dart';
 
 /// Coque avec barre de navigation pour l'espace client :
 /// Accueil / Courses / Messages / Profil.
@@ -47,7 +48,7 @@ class _ClientShellState extends State<ClientShell> {
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
       stream: uid == null
           ? null
-          : FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
+          : UserRepository().watchUser(uid),
       builder: (context, snapshot) {
         final rideLocked = snapshot.data?.data()?['clientActiveRideId'] != null;
 

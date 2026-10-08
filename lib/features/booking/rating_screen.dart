@@ -1,8 +1,8 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_strings.dart';
 import '../../core/theme/app_colors.dart';
+import '../../repositories/ride_repository.dart';
 
 /// Notation du chauffeur à la fin d'une course — écran clair, distinct
 /// du thème sombre du reste de l'application (comme dans la maquette).
@@ -44,7 +44,7 @@ class _RatingScreenState extends State<RatingScreen> {
     });
 
     try {
-      await FirebaseFirestore.instance.collection('ride_requests').doc(widget.rideId).update({
+      await RideRepository().updateRide(widget.rideId, {
         'rating': _overall,
         if (_commentController.text.trim().isNotEmpty) 'ratingComment': _commentController.text.trim(),
         if (_punctuality > 0) 'ratingPunctuality': _punctuality,

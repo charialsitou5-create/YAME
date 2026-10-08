@@ -8,19 +8,24 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../core/constants/app_strings.dart';
-import '../../core/fare.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/ride_request.dart';
 import '../../models/vehicle_type.dart';
+import '../../repositories/ride_repository.dart';
+import '../../repositories/user_repository.dart';
+import '../../repositories/wallet_repository.dart';
 import '../../services/payment_service.dart';
 import '../../services/dispatch_response_service.dart';
 import '../../services/driver_tracking_service.dart';
 import '../../services/routing_service.dart';
-import 'contact_passenger_screen.dart';
+import 'driver_home/account_cards.dart';
+import 'driver_home/driver_header.dart';
+import 'driver_home/driver_map_panel.dart';
+import 'driver_home/active_ride_panel.dart';
+import 'driver_home/ride_offer_card.dart';
+import 'driver_home/status_notices.dart';
 import 'recharge_screen.dart';
 import '../../services/error_reporter.dart';
-
-const _pointeNoireCenter = LatLng(-4.7889, 11.8656);
 
 /// Écran chauffeur : bascule en ligne/hors ligne, carte live, solde, liste
 /// des demandes de course ouvertes pour son type de véhicule, et suivi de
@@ -47,8 +52,11 @@ class DriverHomeScreen extends StatefulWidget {
   /// Surcharge de [RoutingService.fetchRoute] pour les tests — sans elle,
   /// un test avec une course active déclencherait un vrai appel réseau vers
   /// le serveur OSRM public à chaque rendu de la carte.
-  final Future<RouteResult?> Function({required LatLng from, required LatLng to})?
-      routeFetcher;
+  final Future<RouteResult?> Function({
+    required LatLng from,
+    required LatLng to,
+  })?
+  routeFetcher;
 
   @override
   State<DriverHomeScreen> createState() => _DriverHomeScreenState();
@@ -81,9 +89,11 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   void _maybeFetchRoute(LatLng origin, LatLng destination) {
     if (_fetchingRoute) return;
     final now = DateTime.now();
-    final stale = _routeFetchedAt == null ||
+    final stale =
+        _routeFetchedAt == null ||
         now.difference(_routeFetchedAt!) > const Duration(seconds: 15);
-    final moved = _routeOrigin == null ||
+    final moved =
+        _routeOrigin == null ||
         Geolocator.distanceBetween(
               origin.latitude,
               origin.longitude,
@@ -128,7 +138,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       _mapController.move(p, 15);
     } catch (e, st) {
       ErrorReporter.report(e, st, context: 'driver_home.move_map_15');
-      }
+    }
   }
 
   /// Bouton GPS : relit la vraie position, la publie (le dispatch s'appuie
@@ -149,16 +159,13 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       _mapController.move(p, 16);
     } catch (e, st) {
       ErrorReporter.report(e, st, context: 'driver_home.move_map_16');
-      }
+    }
   }
 
   Future<void> _recoverActiveRide() async {
     final uid = _uid;
     if (uid == null) return;
-    final doc = await _db
-        .collection('users')
-        .doc(uid)
-        .get();
+    final doc = await UserRepository(_db).getUser(uid);
     final activeId = doc.data()?['driverActiveRideId'] as String?;
     final wasOnline = doc.data()?['driverOnline'] as bool? ?? false;
     if (!mounted) return;
@@ -188,9 +195,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     setState(() => _online = value);
     final uid = _uid;
     if (uid != null) {
-      _db.collection('users').doc(uid).update({
-        'driverOnline': value,
-      });
+      UserRepository(_db).updateUser(uid, {'driverOnline': value});
     }
     if (value) {
       _trackingService.startTracking();
@@ -227,18 +232,14 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? subscription;
     Timer? timeoutTimer;
 
-    subscription = _db
-        .collection('ride_requests')
-        .doc(id)
-        .snapshots()
-        .listen((snapshot) {
-          final data = snapshot.data();
-          if (data != null &&
-              data['status'] == 'accepted' &&
-              data['driverUid'] == uid) {
-            if (!completer.isCompleted) completer.complete(true);
-          }
-        });
+    subscription = RideRepository(_db).watchRide(id).listen((snapshot) {
+      final data = snapshot.data();
+      if (data != null &&
+          data['status'] == 'accepted' &&
+          data['driverUid'] == uid) {
+        if (!completer.isCompleted) completer.complete(true);
+      }
+    });
 
     timeoutTimer = Timer(const Duration(seconds: 15), () {
       if (!completer.isCompleted) completer.complete(false);
@@ -278,14 +279,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       _routeFetchedAt = null;
     });
     if (uid != null) {
-      final batch = _db.batch()
-        ..set(
-          _db.collection('driver_profiles').doc(uid).collection('location').doc('current'),
-          {'activeClientUid': FieldValue.delete()},
-          SetOptions(merge: true),
-        )
-        ..update(_db.collection('users').doc(uid), {'driverActiveRideId': null});
-      await batch.commit();
+      await RideRepository(_db).releaseDriver(uid);
     }
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -297,27 +291,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     final id = _activeRideId;
     if (id == null) return;
     final uid = _uid;
-    final batch = _db.batch()
-      ..update(_db.collection('ride_requests').doc(id), {
-        'status': newStatus.firestoreValue,
-      });
-    if (uid != null) {
-      // Révoque l'accès du client à la position GPS live maintenant que
-      // la course est terminée/annulée.
-      batch.set(
-        _db
-            .collection('driver_profiles')
-            .doc(uid)
-            .collection('location')
-            .doc('current'),
-        {'activeClientUid': FieldValue.delete()},
-        SetOptions(merge: true),
-      );
-      batch.update(_db.collection('users').doc(uid), {
-        'driverActiveRideId': null,
-      });
-    }
-    await batch.commit();
+    await RideRepository(_db)
+        .finishRide(rideId: id, status: newStatus, driverUid: uid);
     if (newStatus == RideStatus.completed) {
       try {
         await PaymentService.chargeCommission(rideId: id);
@@ -348,9 +323,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   Future<void> _advanceRide(RideStatus newStatus) async {
     final id = _activeRideId;
     if (id == null) return;
-    await _db.collection('ride_requests').doc(id).update({
-      'status': newStatus.firestoreValue,
-    });
+    await RideRepository(_db)
+        .updateRide(id, {'status': newStatus.firestoreValue});
     if (!mounted) return;
     setState(() {
       _route = null;
@@ -366,14 +340,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-          stream: uid == null
-              ? null
-              : _db
-                    .collection('driver_profiles')
-                    .doc(uid)
-                    .collection('wallet')
-                    .doc('current')
-                    .snapshots(),
+          stream: uid == null ? null : WalletRepository(_db).watchWallet(uid),
           builder: (context, snapshot) {
             // Avant la première valeur du stream, `snapshot.data` est
             // `null` et `balance` retomberait à 0 — indiscernable d'un
@@ -386,7 +353,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
               );
             }
             final balance = snapshot.data?.data()?['balance'] as int? ?? 0;
-            final earningsBalance = snapshot.data?.data()?['earningsBalance'] as int? ?? 0;
+            final earningsBalance =
+                snapshot.data?.data()?['earningsBalance'] as int? ?? 0;
             final hasBalance = balance > 0;
 
             if (_online && !hasBalance && _activeRideId == null) {
@@ -400,131 +368,14 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                 SliverToBoxAdapter(
                   child: Column(
                     children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Icon(
-                                  Icons.pin_drop_rounded,
-                                  color: AppColors.accent,
-                                  size: 22,
-                                ),
-                                const SizedBox(width: 6),
-                                Expanded(
-                                  child: Text(
-                                    'YAME',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleLarge
-                                        ?.copyWith(
-                                          color: AppColors.accent,
-                                          letterSpacing: 0.5,
-                                        ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 14),
-                            Row(
-                              children: [
-                                CircleAvatar(
-                                  radius: 24,
-                                  backgroundColor: AppColors.accent,
-                                  child: Text(
-                                    widget.driverName.isNotEmpty
-                                        ? widget.driverName[0].toUpperCase()
-                                        : '?',
-                                    style: const TextStyle(
-                                      color: AppColors.background,
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 18,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 14),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        '${AppStrings.homeGreeting} ${widget.driverName}',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .titleLarge,
-                                      ),
-                                      Text(
-                                        AppStrings.driverDashboardTitle,
-                                        style: const TextStyle(
-                                          color: AppColors.textSecondary,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Flexible(
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color:
-                                          (_online
-                                                  ? AppColors.success
-                                                  : AppColors.textDisabled)
-                                              .withValues(alpha: 0.16),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Container(
-                                          width: 8,
-                                          height: 8,
-                                          decoration: BoxDecoration(
-                                            color: _online
-                                                ? AppColors.success
-                                                : AppColors.textDisabled,
-                                            shape: BoxShape.circle,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Flexible(
-                                          child: Text(
-                                            _online
-                                                ? AppStrings.driverOnline
-                                                : AppStrings.driverOffline,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(
-                                              color: _online
-                                                  ? AppColors.success
-                                                  : AppColors.textSecondary,
-                                              fontWeight: FontWeight.w700,
-                                              fontSize: 13,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
+                      DriverHeader(
+                        driverName: widget.driverName,
+                        online: _online,
                       ),
                       const SizedBox(height: 16),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: _RechargeAccountCard(
+                        child: RechargeAccountCard(
                           balance: balance,
                           onRecharge: () => Navigator.of(context).push(
                             MaterialPageRoute(
@@ -536,15 +387,20 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                       const SizedBox(height: 12),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: _EarningsAccountCard(
+                        child: EarningsAccountCard(
                           balance: earningsBalance,
-                          onSeeEarnings: () => ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text(AppStrings.socialAuthComingSoon)),
-                          ),
+                          onSeeEarnings: () => ScaffoldMessenger.of(context)
+                              .showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    AppStrings.socialAuthComingSoon,
+                                  ),
+                                ),
+                              ),
                         ),
                       ),
                       const SizedBox(height: 16),
-                      _WaitingForRequestsBar(
+                      WaitingForRequestsBar(
                         online: _online,
                         canToggle: hasBalance && _activeRideId == null,
                         onChanged: (value) => _toggleOnline(value),
@@ -554,7 +410,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                 ),
                 SliverToBoxAdapter(
                   child: _activeRideId != null
-                      ? _ActiveRide(
+                      ? ActiveRide(
                           rideId: _activeRideId!,
                           onEnd: _endRide,
                           onAdvance: _advanceRide,
@@ -569,10 +425,10 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                           eta: _route?.duration,
                         )
                       : !hasBalance
-                      ? const _BalanceRequiredNotice()
+                      ? const BalanceRequiredNotice()
                       : !_online
-                      ? const _OfflineNotice()
-                      : _RideOfferCard(
+                      ? const OfflineNotice()
+                      : RideOfferCard(
                           onRespond: _respondToOffer,
                           firestore: _db,
                           uid: _uid,
@@ -582,209 +438,14 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                   child: Column(
                     children: [
                       const SizedBox(height: 8),
-                      SizedBox(
-                        height: 180,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(18),
-                            child: Stack(
-                              children: [
-                                FlutterMap(
-                                  mapController: _mapController,
-                                  options: const MapOptions(
-                                    initialCenter: _pointeNoireCenter,
-                                    initialZoom: 13,
-                                  ),
-                                  children: [
-                                    TileLayer(
-                                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                                      userAgentPackageName: 'com.yame.yame',
-                                    ),
-                                    if (uid != null)
-                                      StreamBuilder<
-                                        DocumentSnapshot<Map<String, dynamic>>
-                                      >(
-                                        stream: _db
-                                            .collection('driver_profiles')
-                                            .doc(uid)
-                                            .collection('location')
-                                            .doc('current')
-                                            .snapshots(),
-                                        builder: (context, locSnap) {
-                                          final data = locSnap.data?.data();
-                                          LatLng? driverPos;
-                                          if (data != null &&
-                                              data['lat'] != null &&
-                                              data['lng'] != null) {
-                                            driverPos = LatLng(
-                                              (data['lat'] as num).toDouble(),
-                                              (data['lng'] as num).toDouble(),
-                                            );
-                                          }
-
-                                          final driverMarker = driverPos == null
-                                              ? null
-                                              : Marker(
-                                                  point: driverPos,
-                                                  width: 40,
-                                                  height: 40,
-                                                  child: const Icon(
-                                                    Icons.directions_car_rounded,
-                                                    color: AppColors.accent,
-                                                    size: 28,
-                                                  ),
-                                                );
-
-                                          if (_activeRideId == null) {
-                                            return MarkerLayer(
-                                              markers: [
-                                                if (driverMarker != null) driverMarker,
-                                              ],
-                                            );
-                                          }
-
-                                          return StreamBuilder<
-                                            DocumentSnapshot<Map<String, dynamic>>
-                                          >(
-                                            stream: _db
-                                                .collection('ride_requests')
-                                                .doc(_activeRideId)
-                                                .snapshots(),
-                                            builder: (context, rideSnap) {
-                                              final rideData = rideSnap.data?.data();
-                                              final pickupMap =
-                                                  rideData?['pickup'] as Map<String, dynamic>?;
-                                              final destinationMap =
-                                                  rideData?['destination'] as Map<String, dynamic>?;
-                                              final rideStatus = rideData?['status'] as String?;
-                                              final clientUid =
-                                                  rideData?['clientUid'] as String?;
-                                              LatLng? pickup;
-                                              if (pickupMap != null) {
-                                                pickup = LatLng(
-                                                  (pickupMap['lat'] as num).toDouble(),
-                                                  (pickupMap['lng'] as num).toDouble(),
-                                                );
-                                              }
-                                              LatLng? destination;
-                                              if (destinationMap != null) {
-                                                destination = LatLng(
-                                                  (destinationMap['lat'] as num).toDouble(),
-                                                  (destinationMap['lng'] as num).toDouble(),
-                                                );
-                                              }
-
-                                              // Avant l'arrivée : itinéraire vers le client.
-                                              // Une fois à bord : itinéraire vers la destination.
-                                              // "Arrivé" (entre les deux) : pas de tracé, ETA = 0.
-                                              if (driverPos != null &&
-                                                  rideStatus == RideStatus.accepted.firestoreValue &&
-                                                  pickup != null) {
-                                                _maybeFetchRoute(driverPos, pickup);
-                                              } else if (driverPos != null &&
-                                                  rideStatus == RideStatus.inProgress.firestoreValue &&
-                                                  destination != null) {
-                                                _maybeFetchRoute(driverPos, destination);
-                                              }
-
-                                              return StreamBuilder<
-                                                DocumentSnapshot<Map<String, dynamic>>
-                                              >(
-                                                stream: clientUid == null
-                                                    ? const Stream.empty()
-                                                    : _db
-                                                        .collection('users')
-                                                        .doc(clientUid)
-                                                        .collection('location')
-                                                        .doc('current')
-                                                        .snapshots(),
-                                                builder: (context, clientLocSnap) {
-                                                  final clientData =
-                                                      clientLocSnap.data?.data();
-                                                  LatLng? clientPos;
-                                                  if (clientData != null &&
-                                                      clientData['lat'] != null &&
-                                                      clientData['lng'] != null) {
-                                                    clientPos = LatLng(
-                                                      (clientData['lat'] as num).toDouble(),
-                                                      (clientData['lng'] as num).toDouble(),
-                                                    );
-                                                  }
-
-                                                  return Stack(
-                                                    children: [
-                                                      if (_route != null)
-                                                        PolylineLayer(
-                                                          polylines: [
-                                                            Polyline(
-                                                              points: _route!.polyline,
-                                                              strokeWidth: 4,
-                                                              color: AppColors.accent,
-                                                            ),
-                                                          ],
-                                                        ),
-                                                      MarkerLayer(
-                                                        markers: [
-                                                          if (driverMarker != null)
-                                                            driverMarker,
-                                                          if (pickup != null)
-                                                            Marker(
-                                                              point: pickup,
-                                                              width: 36,
-                                                              height: 36,
-                                                              child: const Icon(
-                                                                Icons.location_on,
-                                                                color: Colors.green,
-                                                                size: 36,
-                                                              ),
-                                                            ),
-                                                          if (clientPos != null)
-                                                            Marker(
-                                                              point: clientPos,
-                                                              width: 22,
-                                                              height: 22,
-                                                              child: Container(
-                                                                decoration: BoxDecoration(
-                                                                  color: Colors.blueAccent,
-                                                                  shape: BoxShape.circle,
-                                                                  border: Border.all(
-                                                                    color: Colors.white,
-                                                                    width: 3,
-                                                                  ),
-                                                                  boxShadow: const [
-                                                                    BoxShadow(
-                                                                      color: Colors.black38,
-                                                                      blurRadius: 4,
-                                                                    ),
-                                                                  ],
-                                                                ),
-                                                              ),
-                                                            ),
-                                                        ],
-                                                      ),
-                                                    ],
-                                                  );
-                                                },
-                                              );
-                                            },
-                                          );
-                                        },
-                                      ),
-                                  ],
-                                ),
-                                Positioned(
-                                  right: 10,
-                                  bottom: 10,
-                                  child: _MapControlButton(
-                                    icon: Icons.my_location_rounded,
-                                    onTap: _recenterOnMe,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
+                      DriverMapPanel(
+                        mapController: _mapController,
+                        firestore: _db,
+                        uid: uid,
+                        activeRideId: _activeRideId,
+                        route: _route,
+                        onNeedRoute: _maybeFetchRoute,
+                        onRecenter: _recenterOnMe,
                       ),
                       const SizedBox(height: 16),
                     ],
@@ -795,764 +456,6 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
           },
         ),
       ),
-    );
-  }
-}
-
-class _RechargeAccountCard extends StatelessWidget {
-  const _RechargeAccountCard({required this.balance, required this.onRecharge});
-
-  final int balance;
-  final VoidCallback onRecharge;
-
-  @override
-  Widget build(BuildContext context) {
-    final soft = AppColors.background.withValues(alpha: 0.7);
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
-      decoration: BoxDecoration(
-        color: AppColors.accent,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            alignment: Alignment.center,
-            decoration: const BoxDecoration(
-              color: AppColors.background,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.bolt_rounded,
-              color: AppColors.accent,
-              size: 22,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  '${AppStrings.driverDashboardRechargeAccount} '
-                  '${AppStrings.driverDashboardRechargeAccountSubtitle}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: soft,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    '$balance FCFA',
-                    style: const TextStyle(
-                      color: AppColors.background,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 24,
-                    ),
-                  ),
-                ),
-                Text(
-                  AppStrings.driverDashboardRechargeNonWithdrawable,
-                  style: TextStyle(color: soft, fontSize: 13),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Flexible(
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.background,
-                foregroundColor: AppColors.accent,
-                minimumSize: const Size(0, 38),
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                textStyle: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              onPressed: onRecharge,
-              child: const FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(AppStrings.driverDashboardRecharge),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EarningsAccountCard extends StatelessWidget {
-  const _EarningsAccountCard({required this.balance, required this.onSeeEarnings});
-
-  final int balance;
-  final VoidCallback onSeeEarnings;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            alignment: Alignment.center,
-            decoration: const BoxDecoration(
-              color: AppColors.accent,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.savings_outlined,
-              color: AppColors.background,
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  '${AppStrings.driverDashboardEarningsAccount} '
-                  '${AppStrings.driverDashboardEarningsAccountSubtitle}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    '$balance FCFA',
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 24,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Flexible(
-            child: OutlinedButton(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.accent,
-                side: const BorderSide(color: AppColors.accent),
-                minimumSize: const Size(0, 48),
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-              ),
-              onPressed: onSeeEarnings,
-              child: const FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(AppStrings.driverDashboardSeeEarnings),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MapControlButton extends StatelessWidget {
-  const _MapControlButton({required this.icon, required this.onTap});
-
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.surfaceElevated,
-      shape: const CircleBorder(),
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(10),
-          child: Icon(icon, color: AppColors.textPrimary, size: 20),
-        ),
-      ),
-    );
-  }
-}
-
-class _WaitingForRequestsBar extends StatelessWidget {
-  const _WaitingForRequestsBar({
-    required this.online,
-    required this.canToggle,
-    required this.onChanged,
-  });
-
-  final bool online;
-  final bool canToggle;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceElevated,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.accent.withValues(alpha: 0.4)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.watch_later_outlined, color: AppColors.accent),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  online
-                      ? AppStrings.driverDashboardWaitingTitle
-                      : AppStrings.driverOffline,
-                  style: const TextStyle(
-                    color: AppColors.accent,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  AppStrings.driverDashboardWaitingSubtitle,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-              ],
-            ),
-          ),
-          Switch(
-            value: online,
-            activeThumbColor: AppColors.accent,
-            onChanged: canToggle ? onChanged : null,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _OfflineNotice extends StatelessWidget {
-  const _OfflineNotice();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 72,
-              height: 72,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: AppColors.surfaceElevated,
-                shape: BoxShape.circle,
-                border: Border.all(color: AppColors.border),
-              ),
-              child: const Icon(
-                Icons.power_settings_new_rounded,
-                size: 32,
-                color: AppColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              AppStrings.driverGoOnline,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyLarge,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Explique pourquoi le bouton "en ligne" est désactivé — sans second bouton
-/// "Recharger" : celui de `_RechargeAccountCard`, juste au-dessus, est déjà
-/// la seule invite à recharger sur cet écran (en avoir deux à la suite était
-/// jugé agressif par les testeurs).
-class _BalanceRequiredNotice extends StatelessWidget {
-  const _BalanceRequiredNotice();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.info_outline_rounded,
-            size: 18,
-            color: AppColors.textSecondary,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              AppStrings.driverBalanceRequired,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RideOfferCard extends StatelessWidget {
-  const _RideOfferCard({
-    required this.onRespond,
-    required this.firestore,
-    required this.uid,
-  });
-
-  final void Function(RideRequest request, bool accept) onRespond;
-  final FirebaseFirestore firestore;
-  final String? uid;
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: uid == null
-          ? null
-          : firestore
-                .collection('ride_requests')
-                .where('offeredUid', isEqualTo: uid)
-                .where('status', isEqualTo: RideStatus.searching.firestoreValue)
-                .limit(1)
-                .snapshots(),
-      builder: (context, snapshot) {
-        final docs = snapshot.data?.docs ?? [];
-        if (docs.isEmpty) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(32),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.search_rounded,
-                    size: 40,
-                    color: AppColors.textSecondary,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    AppStrings.driverNoRequests,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-
-        final request = RideRequest.fromDoc(docs.first);
-        return Padding(
-          padding: const EdgeInsets.all(20),
-          child: Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceElevated,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  request.clientName.isNotEmpty
-                      ? request.clientName
-                      : AppStrings.driverClient,
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 12),
-                _AddressRow(
-                  icon: Icons.circle,
-                  iconColor: AppColors.success,
-                  label: AppStrings.driverPickup,
-                  address: request.pickupAddress,
-                ),
-                const SizedBox(height: 8),
-                _AddressRow(
-                  icon: Icons.location_on,
-                  iconColor: AppColors.accent,
-                  label: AppStrings.driverDestination,
-                  address: request.destinationAddress,
-                ),
-                if (request.price != null) ...[
-                  const SizedBox(height: 12),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Padding(
-                        padding: EdgeInsets.only(top: 4),
-                        child: Icon(
-                          Icons.payments_outlined,
-                          size: 12,
-                          color: AppColors.accentBright,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          '${AppStrings.driverOfferPrice} — '
-                          '${formatFcfa(request.price!)} FCFA',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: AppColors.accentBright,
-                                fontWeight: FontWeight.w700,
-                              ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-                if (request.offerExpiresAt != null) ...[
-                  const SizedBox(height: 12),
-                  _OfferCountdown(expiresAt: request.offerExpiresAt!),
-                ],
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => onRespond(request, false),
-                        child: const Text(AppStrings.driverDecline),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () => onRespond(request, true),
-                        child: const Text(AppStrings.driverAccept),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _OfferCountdown extends StatefulWidget {
-  const _OfferCountdown({required this.expiresAt});
-
-  final DateTime expiresAt;
-
-  @override
-  State<_OfferCountdown> createState() => _OfferCountdownState();
-}
-
-class _OfferCountdownState extends State<_OfferCountdown> {
-  Timer? _timer;
-
-  @override
-  void initState() {
-    super.initState();
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() {});
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final remaining = widget.expiresAt.difference(DateTime.now()).inSeconds;
-    final seconds = remaining > 0 ? remaining : 0;
-    return Text(
-      '${AppStrings.driverOfferExpiresIn} ${seconds}s',
-      style: Theme.of(context).textTheme.bodyMedium
-          ?.copyWith(color: AppColors.accentBright),
-    );
-  }
-}
-
-class _ActiveRide extends StatelessWidget {
-  const _ActiveRide({
-    required this.rideId,
-    required this.onEnd,
-    required this.onAdvance,
-    required this.onUnavailable,
-    required this.onClientCancelled,
-    required this.firestore,
-    required this.eta,
-  });
-
-  final FirebaseFirestore firestore;
-  final String rideId;
-  final ValueChanged<RideStatus> onEnd;
-
-  /// Fait passer la course à l'étape suivante (accepted → arrived →
-  /// inProgress) — distinct de [onEnd], qui termine ou annule la course.
-  final ValueChanged<RideStatus> onAdvance;
-  final VoidCallback onUnavailable;
-  final VoidCallback onClientCancelled;
-
-  /// Durée estimée jusqu'à la prochaine étape — point de départ du client
-  /// tant que la course est `accepted`, destination une fois `inProgress` —
-  /// calculée via `RoutingService` (OSRM). `null` tant qu'aucun itinéraire
-  /// n'a encore été reçu, ou hors sujet à l'étape `arrived` (ETA = 0).
-  final Duration? eta;
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: firestore
-          .collection('ride_requests')
-          .doc(rideId)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData || !snapshot.data!.exists) {
-          // Le chauffeur a perdu l'accès au document (course annulée/
-          // réassignée entre-temps) : un écran blanc serait bloquant, on
-          // propose donc de revenir à la carte d'offre plutôt que de
-          // laisser le chauffeur coincé.
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(32),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.error_outline_rounded,
-                    size: 40,
-                    color: AppColors.textSecondary,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    AppStrings.driverActiveRideUnavailable,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: onUnavailable,
-                    child: const Text(
-                      AppStrings.driverActiveRideUnavailableCta,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-        final request = RideRequest.fromDoc(snapshot.data!);
-        if (request.status == RideStatus.cancelled) {
-          WidgetsBinding.instance.addPostFrameCallback((_) => onClientCancelled());
-          return const SizedBox.shrink();
-        }
-        final badgeText = switch (request.status) {
-          RideStatus.accepted => AppStrings.driverStatusEnRoute,
-          RideStatus.arrived => AppStrings.driverStatusArrived,
-          _ => AppStrings.driverAcceptedRide,
-        };
-        final etaPrefix = request.status == RideStatus.inProgress
-            ? AppStrings.driverEtaToDestinationPrefix
-            : AppStrings.driverEtaToPickupPrefix;
-        return Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.accent.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  badgeText,
-                  style: const TextStyle(
-                    color: AppColors.accentBright,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              if (eta != null && request.status != RideStatus.arrived) ...[
-                const SizedBox(height: 10),
-                Text(
-                  '$etaPrefix ${formatEta(eta!)}',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppColors.accent,
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-              ],
-              const SizedBox(height: 18),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceElevated,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      request.clientName.isNotEmpty
-                          ? request.clientName
-                          : AppStrings.driverClient,
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 14),
-                    _AddressRow(
-                      icon: Icons.circle,
-                      iconColor: AppColors.success,
-                      label: AppStrings.driverPickup,
-                      address: request.pickupAddress,
-                    ),
-                    const SizedBox(height: 8),
-                    _AddressRow(
-                      icon: Icons.location_on,
-                      iconColor: AppColors.accent,
-                      label: AppStrings.driverDestination,
-                      address: request.destinationAddress,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => ContactPassengerScreen(ride: request),
-                    ),
-                  ),
-                  icon: const Icon(Icons.call_rounded, size: 18),
-                  label: const Text(AppStrings.driverContactPassenger),
-                ),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: switch (request.status) {
-                    RideStatus.accepted => () => onAdvance(RideStatus.arrived),
-                    RideStatus.arrived => () => onAdvance(RideStatus.inProgress),
-                    _ => () => onEnd(RideStatus.completed),
-                  },
-                  child: Text(switch (request.status) {
-                    RideStatus.accepted => AppStrings.driverMarkArrived,
-                    RideStatus.arrived => AppStrings.driverStartRide,
-                    _ => AppStrings.driverComplete,
-                  }),
-                ),
-              ),
-              const SizedBox(height: 10),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  onPressed: () async {
-                    final confirmed = await showDialog<bool>(
-                      context: context,
-                      builder: (ctx) => AlertDialog(
-                        backgroundColor: AppColors.surfaceElevated,
-                        title: const Text(AppStrings.driverCancelConfirmTitle),
-                        content: const Text(AppStrings.driverCancelConfirmBody),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(ctx, false),
-                            child: const Text(
-                              AppStrings.driverCancelConfirmKeep,
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: () => Navigator.pop(ctx, true),
-                            child: const Text(
-                              AppStrings.driverCancelConfirmYes,
-                              style: TextStyle(color: AppColors.error),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                    if (confirmed == true) onEnd(RideStatus.cancelled);
-                  },
-                  child: const Text(AppStrings.driverCancelRide),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _AddressRow extends StatelessWidget {
-  const _AddressRow({
-    required this.icon,
-    required this.iconColor,
-    required this.label,
-    required this.address,
-  });
-
-  final IconData icon;
-  final Color iconColor;
-  final String label;
-  final String? address;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Icon(icon, size: 12, color: iconColor),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            '$label — ${address ?? '…'}',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-        ),
-      ],
     );
   }
 }
