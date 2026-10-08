@@ -1,5 +1,6 @@
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:yame/models/ride_request.dart';
 import 'package:yame/repositories/config_repository.dart';
 import 'package:yame/repositories/driver_repository.dart';
 import 'package:yame/repositories/ride_repository.dart';
@@ -56,5 +57,30 @@ void main() {
   test('ConfigRepository lit app_config/pricing', () async {
     await db.doc('app_config/pricing').set({'car': {}});
     expect((await ConfigRepository(db).getPricing()).exists, isTrue);
+  });
+
+  test('RideRepository.finishRide et releaseDriver libèrent le chauffeur', () async {
+    final repo = RideRepository(db);
+    await db.doc('ride_requests/r1').set({'status': 'inProgress'});
+    await db.doc('users/d1').set({'driverActiveRideId': 'r1'});
+    await db.doc('driver_profiles/d1/location/current').set({'activeClientUid': 'c', 'lat': 1});
+    await repo.finishRide(rideId: 'r1', status: RideStatus.completed, driverUid: 'd1');
+    expect((await db.doc('ride_requests/r1').get()).data()?['status'], RideStatus.completed.firestoreValue);
+    expect((await db.doc('users/d1').get()).data()?['driverActiveRideId'], isNull);
+    final loc = (await db.doc('driver_profiles/d1/location/current').get()).data()!;
+    expect(loc.containsKey('activeClientUid'), isFalse);
+    expect(loc['lat'], 1);
+
+    await db.doc('users/d1').update({'driverActiveRideId': 'r2'});
+    await db.doc('driver_profiles/d1/location/current').update({'activeClientUid': 'c'});
+    await repo.releaseDriver('d1');
+    expect((await db.doc('users/d1').get()).data()?['driverActiveRideId'], isNull);
+  });
+
+  test('RideRepository.watchOfferedRide', () async {
+    await db.doc('ride_requests/r1').set({'offeredUid': 'd', 'status': RideStatus.searching.firestoreValue});
+    await db.doc('ride_requests/r2').set({'offeredUid': 'x', 'status': RideStatus.searching.firestoreValue});
+    final q = await RideRepository(db).watchOfferedRide('d').first;
+    expect(q.docs.map((d) => d.id), ['r1']);
   });
 }
