@@ -17,6 +17,7 @@ import '../../models/vehicle_type.dart';
 import '../../routes/app_routes.dart';
 import '../../services/client_tracking_service.dart';
 import '../../services/dispatch_service.dart';
+import '../../services/email_verification_service.dart';
 import '../../services/routing_service.dart';
 import 'location_picker_screen.dart';
 import 'recipient_details_screen.dart';
@@ -300,6 +301,13 @@ class _BookingScreenState extends State<BookingScreen> {
   Future<void> _requestDriver() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null || _pickupPosition == null || _destinationPosition == null) {
+      return;
+    }
+
+    if (emailVerificationBlocksAction()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.emailVerifyRequired)),
+      );
       return;
     }
 

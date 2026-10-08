@@ -2,7 +2,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/widgets/email_verification_banner.dart';
 import '../../models/app_mode.dart';
+import '../../services/email_verification_service.dart';
 import '../../models/app_user.dart';
 import '../../services/notification_service.dart';
 import '../driver/driver_intro_screen.dart';
@@ -28,6 +30,9 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  final _emailSource = FirebaseEmailVerificationSource();
+  late bool _bannerVisible = _emailSource.needsVerification;
+
   @override
   void initState() {
     super.initState();
@@ -39,6 +44,30 @@ class _HomeScreenState extends State<HomeScreen> {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return const SizedBox.shrink();
 
+    // Structure stable (Column) : le bandeau apparaît/disparaît sans recréer
+    // l'état des shells en dessous.
+    return Column(
+      children: [
+        if (_bannerVisible)
+          SafeArea(
+            bottom: false,
+            child: EmailVerificationBanner(
+              source: _emailSource,
+              onVisibilityChanged: (v) => setState(() => _bannerVisible = v),
+            ),
+          ),
+        Expanded(
+          child: MediaQuery.removePadding(
+            context: context,
+            removeTop: _bannerVisible,
+            child: _buildBody(uid),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBody(String uid) {
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
       stream: UserRepository().watchUser(uid),
       builder: (context, snapshot) {

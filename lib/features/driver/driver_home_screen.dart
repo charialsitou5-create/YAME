@@ -17,6 +17,7 @@ import '../../repositories/wallet_repository.dart';
 import '../../services/payment_service.dart';
 import '../../services/dispatch_response_service.dart';
 import '../../services/driver_tracking_service.dart';
+import '../../services/email_verification_service.dart';
 import '../../services/routing_service.dart';
 import 'driver_home/account_cards.dart';
 import 'driver_home/driver_header.dart';
@@ -192,6 +193,12 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   }
 
   void _toggleOnline(bool value) {
+    if (value && emailVerificationBlocksAction()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.emailVerifyRequired)),
+      );
+      return;
+    }
     setState(() => _online = value);
     final uid = _uid;
     if (uid != null) {

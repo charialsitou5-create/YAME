@@ -65,6 +65,11 @@ class _SignupScreenState extends State<SignupScreen> {
         driverVehicleType: widget.vehicleType,
       );
       await UserRepository().setUser(uid, user.toMap());
+      // Non bloquant : un échec d'envoi ne doit pas empêcher l'inscription ;
+      // le bandeau permettra de renvoyer le lien.
+      try {
+        await credential.user!.sendEmailVerification();
+      } catch (_) {}
 
       if (!mounted) return;
       Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.home, (route) => false);
