@@ -217,3 +217,11 @@ describe('app_config', () => {
     await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(), 'app_config/pricing')));
   });
 });
+
+describe('C1 wallet : earningsBalance interdit', () => {
+  it('création avec earningsBalance refusée', async () => {
+    await assertFails(setDoc(doc(db('drv'), 'driver_profiles/drv/wallet/current'), { balance: 0, earningsBalance: 500000 }));
+    await assertFails(setDoc(doc(db('drv'), 'driver_profiles/drv/wallet/current'), { balance: 0, foo: 1 }));
+    await assertSucceeds(setDoc(doc(db('drv'), 'driver_profiles/drv/wallet/current'), { balance: 0 }));
+  });
+});

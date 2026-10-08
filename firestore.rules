@@ -81,6 +81,7 @@ service cloud.firestore {
       match /wallet/{docId} {
         allow read: if request.auth != null && request.auth.uid == driverId;
         allow create: if request.auth != null && request.auth.uid == driverId
+          && request.resource.data.keys().hasOnly(['balance'])
           && request.resource.data.balance == 0;
         allow update, delete: if false;
       }
