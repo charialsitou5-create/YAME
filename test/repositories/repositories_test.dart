@@ -83,4 +83,18 @@ void main() {
     final q = await RideRepository(db).watchOfferedRide('d').first;
     expect(q.docs.map((d) => d.id), ['r1']);
   });
+
+  test('RideRepository.createRequest puis cancelByClient', () async {
+    final repo = RideRepository(db);
+    await db.doc('users/c1').set({'name': 'C'});
+    final id = await repo.createRequest(clientUid: 'c1', data: {'clientUid': 'c1', 'status': 'searching'});
+    expect((await db.doc('users/c1').get()).data()?['clientActiveRideId'], id);
+    expect((await db.doc('ride_requests/$id').get()).data()?['status'], 'searching');
+    await repo.cancelByClient(rideId: id, clientUid: 'c1', reason: 'r', comment: 'x');
+    final ride = (await db.doc('ride_requests/$id').get()).data()!;
+    expect(ride['status'], RideStatus.cancelled.firestoreValue);
+    expect(ride['cancelReason'], 'r');
+    expect(ride['cancelComment'], 'x');
+    expect((await db.doc('users/c1').get()).data()?['clientActiveRideId'], isNull);
+  });
 }
