@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -6,6 +5,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import '../models/app_mode.dart';
 import '../models/app_user.dart';
 import '../models/vehicle_type.dart';
+import '../repositories/user_repository.dart';
 
 /// Résultat d'une connexion sociale réussie.
 class SocialSignInResult {
@@ -171,7 +171,7 @@ class SocialAuthService {
     VehicleType? vehicleType,
   }) async {
     final uid = credential.user!.uid;
-    final docRef = FirebaseFirestore.instance.collection('users').doc(uid);
+    final docRef = UserRepository().userRef(uid);
     final doc = await docRef.get();
     if (doc.exists) {
       final activeModeValue = doc.data()?['activeMode'] as String?;
