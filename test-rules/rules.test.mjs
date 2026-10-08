@@ -225,3 +225,17 @@ describe('C1 wallet : earningsBalance interdit', () => {
     await assertSucceeds(setDoc(doc(db('drv'), 'driver_profiles/drv/wallet/current'), { balance: 0 }));
   });
 });
+
+describe('H2 users : champs de modération', () => {
+  it('un client sanctionné ne peut pas se débloquer', async () => {
+    await seed((d) => setDoc(doc(d, 'users/u1'), { activeMode: 'client', moderationStatus: 'blocked', moderationReason: 'x' }));
+    await assertFails(updateDoc(doc(db('u1'), 'users/u1'), { moderationStatus: 'active' }));
+    await assertFails(updateDoc(doc(db('u1'), 'users/u1'), { moderationUntil: '2020-01-01T00:00:00Z' }));
+    await assertFails(updateDoc(doc(db('u1'), 'users/u1'), { moderationReason: null }));
+    await assertSucceeds(updateDoc(doc(db('u1'), 'users/u1'), { name: 'N' }));
+  });
+  it('création avec champs de modération refusée', async () => {
+    await assertFails(setDoc(doc(db('u2'), 'users/u2'), { activeMode: 'client', moderationStatus: 'active' }));
+    await assertSucceeds(setDoc(doc(db('u2'), 'users/u2'), { activeMode: 'client' }));
+  });
+});
