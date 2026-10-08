@@ -196,10 +196,19 @@ describe('users.activeMode', () => {
 });
 
 describe('incidents', () => {
-  it('lisibles uniquement par leur auteur', async () => {
-    await seed((d) => setDoc(doc(d, 'incidents/i1'), { reporterUid: 'a', status: 'open' }));
-    await assertSucceeds(getDoc(doc(db('a'), 'incidents/i1')));
+  it('le document (notes internes, emails admin) n\'est lisible par personne côté app', async () => {
+    await seed((d) => setDoc(doc(d, 'incidents/i1'), { reporterUid: 'a', status: 'open', notes: [{ text: 'interne', by: 'admin@x.com' }] }));
+    await assertFails(getDoc(doc(db('a'), 'incidents/i1')));
     await assertFails(getDoc(doc(db('b'), 'incidents/i1')));
+  });
+  it('les réponses sont lisibles par l\'auteur du signalement seulement', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'incidents/i1'), { reporterUid: 'a', status: 'answered' });
+      await setDoc(doc(d, 'incidents/i1/replies/r1'), { author: 'admin', text: 'bonjour' });
+    });
+    await assertSucceeds(getDoc(doc(db('a'), 'incidents/i1/replies/r1')));
+    await assertFails(getDoc(doc(db('b'), 'incidents/i1/replies/r1')));
+    await assertFails(setDoc(doc(db('a'), 'incidents/i1/replies/r2'), { author: 'admin', text: 'faux' }));
   });
   it('création en open pour soi seulement, jamais modifiable', async () => {
     await assertSucceeds(setDoc(doc(db('a'), 'incidents/i2'), { reporterUid: 'a', status: 'open' }));
@@ -215,5 +224,50 @@ describe('app_config', () => {
     await assertSucceeds(getDoc(doc(db('a'), 'app_config/pricing')));
     await assertFails(setDoc(doc(db('a'), 'app_config/pricing'), { base: 0 }));
     await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(), 'app_config/pricing')));
+  });
+});
+
+describe('C1 wallet : earningsBalance interdit', () => {
+  it('création avec earningsBalance refusée', async () => {
+    await assertFails(setDoc(doc(db('drv'), 'driver_profiles/drv/wallet/current'), { balance: 0, earningsBalance: 500000 }));
+    await assertFails(setDoc(doc(db('drv'), 'driver_profiles/drv/wallet/current'), { balance: 0, foo: 1 }));
+    await assertSucceeds(setDoc(doc(db('drv'), 'driver_profiles/drv/wallet/current'), { balance: 0 }));
+  });
+});
+
+describe('H2 users : champs de modération', () => {
+  it('un client sanctionné ne peut pas se débloquer', async () => {
+    await seed((d) => setDoc(doc(d, 'users/u1'), { activeMode: 'client', moderationStatus: 'blocked', moderationReason: 'x' }));
+    await assertFails(updateDoc(doc(db('u1'), 'users/u1'), { moderationStatus: 'active' }));
+    await assertFails(updateDoc(doc(db('u1'), 'users/u1'), { moderationUntil: '2020-01-01T00:00:00Z' }));
+    await assertFails(updateDoc(doc(db('u1'), 'users/u1'), { moderationReason: null }));
+    await assertSucceeds(updateDoc(doc(db('u1'), 'users/u1'), { name: 'N' }));
+  });
+  it('création avec champs de modération refusée', async () => {
+    await assertFails(setDoc(doc(db('u2'), 'users/u2'), { activeMode: 'client', moderationStatus: 'active' }));
+    await assertSucceeds(setDoc(doc(db('u2'), 'users/u2'), { activeMode: 'client' }));
+  });
+});
+
+describe('H3 driver_profiles : champs de modération', () => {
+  it('un chauffeur suspendu ne peut pas lever sa suspension', async () => {
+    await seed((d) => setDoc(doc(d, 'driver_profiles/drv'), { status: 'suspended', suspendedUntil: '2099-01-01T00:00:00Z', moderationReason: 'x', model: 'A' }));
+    await assertFails(updateDoc(doc(db('drv'), 'driver_profiles/drv'), { suspendedUntil: '2020-01-01T00:00:00Z' }));
+    await assertFails(updateDoc(doc(db('drv'), 'driver_profiles/drv'), { moderationReason: null }));
+    await assertFails(updateDoc(doc(db('drv'), 'driver_profiles/drv'), { reviewedBy: 'me' }));
+    await assertSucceeds(updateDoc(doc(db('drv'), 'driver_profiles/drv'), { model: 'B' }));
+  });
+  it('création avec champs de modération refusée', async () => {
+    await assertFails(setDoc(doc(db('drv'), 'driver_profiles/drv'), { status: 'pending_verification', reviewedBy: 'me' }));
+  });
+});
+
+describe('H4 ride_requests : champs financiers non forgeables', () => {
+  it('un client ne peut pas poser commissionStatus / paymentStatus / driverUid à la création', async () => {
+    await assertFails(setDoc(doc(db('cli'), 'ride_requests/r1'), ride({ commissionStatus: 'charged' })));
+    await assertFails(setDoc(doc(db('cli'), 'ride_requests/r1'), ride({ paymentStatus: 'paid' })));
+    await assertFails(setDoc(doc(db('cli'), 'ride_requests/r1'), ride({ refundStatus: 'refunded' })));
+    await assertFails(setDoc(doc(db('cli'), 'ride_requests/r1'), ride({ driverUid: 'complice' })));
+    await assertSucceeds(setDoc(doc(db('cli'), 'ride_requests/r1'), ride({ price: 2000 })));
   });
 });

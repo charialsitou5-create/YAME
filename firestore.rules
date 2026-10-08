@@ -2,6 +2,17 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Champs de sanction/modération : écrits UNIQUEMENT par yame-admin
+    // (Admin SDK, qui ignore ces règles). Aucun client ne doit pouvoir les
+    // poser ni les modifier (sinon un compte sanctionné se débloquerait).
+    function moderationUserKeys() {
+      return ['moderationStatus', 'moderationUntil', 'moderationReason'];
+    }
+    function moderationDriverKeys() {
+      return ['suspendedUntil', 'moderationReason', 'moderationStatus', 'moderationUntil',
+              'reviewedBy', 'reviewedAt'];
+    }
+
     // Chaque utilisateur ne peut lire/écrire que son propre profil. Un
     // changement de `activeMode` (bascule client/chauffeur, voir
     // ProfilScreen) est en plus soumis à ce qu'aucune course ne soit active
@@ -15,8 +26,11 @@ service cloud.firestore {
     // sur `diff().affectedKeys()` plutôt que sur des Cloud Functions).
     match /users/{userId} {
       allow read: if request.auth != null && request.auth.uid == userId;
-      allow create: if request.auth != null && request.auth.uid == userId;
-      allow update: if request.auth != null && request.auth.uid == userId && (
+      allow create: if request.auth != null && request.auth.uid == userId
+        && !request.resource.data.keys().hasAny(moderationUserKeys());
+      allow update: if request.auth != null && request.auth.uid == userId
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(moderationUserKeys())
+        && (
         request.resource.data.get('activeMode', null) == resource.data.get('activeMode', null)
         || (resource.data.get('activeMode', null) == 'client'
             ? resource.data.get('clientActiveRideId', null) == null
@@ -65,10 +79,14 @@ service cloud.firestore {
       );
 
       allow create: if request.auth != null && request.auth.uid == driverId
-        && request.resource.data.status == 'pending_verification';
+        && request.resource.data.status == 'pending_verification'
+        && !request.resource.data.keys().hasAny(moderationDriverKeys());
 
+      // `status` et tous les champs de modération (suspendedUntil,
+      // moderationReason, reviewedBy...) sont réservés à yame-admin.
       allow update: if request.auth != null && request.auth.uid == driverId
-        && request.resource.data.status == resource.data.status;
+        && request.resource.data.status == resource.data.status
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(moderationDriverKeys());
 
       allow delete: if false;
 
@@ -81,6 +99,7 @@ service cloud.firestore {
       match /wallet/{docId} {
         allow read: if request.auth != null && request.auth.uid == driverId;
         allow create: if request.auth != null && request.auth.uid == driverId
+          && request.resource.data.keys().hasOnly(['balance'])
           && request.resource.data.balance == 0;
         allow update, delete: if false;
       }
@@ -134,7 +153,15 @@ service cloud.firestore {
       allow create: if request.auth != null
         && request.resource.data.clientUid == request.auth.uid
         && request.resource.data.status == 'searching'
-        && request.resource.data.get('offeredUid', null) == null;
+        && request.resource.data.get('offeredUid', null) == null
+        && request.resource.data.get('driverUid', null) == null
+        // Champs financiers posés uniquement par yame-admin (paiement,
+        // commission, remboursement) : un client ne peut pas les forger.
+        && !request.resource.data.keys().hasAny([
+          'paymentStatus', 'paymentAmount', 'paymentMethod', 'paidAt',
+          'commissionStatus', 'commissionAmount', 'driverNetAmount',
+          'refundStatus', 'refundAmount', 'fare'
+        ]);
 
       allow update: if request.auth != null && (
         // le client annule sa propre demande tant que la course n'a pas
@@ -192,13 +219,23 @@ service cloud.firestore {
     // ignore ces règles). Un utilisateur ne voit que ses propres
     // signalements et ne peut jamais les modifier une fois envoyés.
     match /incidents/{incidentId} {
-      allow read: if request.auth != null && resource.data.reporterUid == request.auth.uid;
+      // Pas de lecture du document par l'auteur : yame-admin y écrit des
+      // données internes (notes, emails d'admins : takenBy, resolvedBy...).
+      // L'app n'a besoin que des réponses (sous-collection `replies`).
+      allow read: if false;
 
       allow create: if request.auth != null
         && request.resource.data.reporterUid == request.auth.uid
         && request.resource.data.status == 'open';
 
       allow update, delete: if false;
+
+      // Réponses de l'équipe : lisibles par l'auteur du signalement.
+      match /replies/{replyId} {
+        allow read: if request.auth != null
+          && get(/databases/$(database)/documents/incidents/$(incidentId)).data.reporterUid == request.auth.uid;
+        allow write: if false;
+      }
     }
 
     // Réglages de l'app (grille tarifaire `app_config/pricing`) : lisibles par
