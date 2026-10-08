@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -10,6 +9,7 @@ import '../../models/vehicle_type.dart';
 import '../../core/widgets/social_button.dart';
 import '../../routes/app_routes.dart';
 import '../../services/social_auth_service.dart';
+import '../../repositories/user_repository.dart';
 
 /// Inscription : nom, téléphone, e-mail, mot de passe.
 class SignupScreen extends StatefulWidget {
@@ -64,7 +64,7 @@ class _SignupScreenState extends State<SignupScreen> {
         activeMode: widget.vehicleType == null ? AppMode.client : AppMode.driver,
         driverVehicleType: widget.vehicleType,
       );
-      await FirebaseFirestore.instance.collection('users').doc(uid).set(user.toMap());
+      await UserRepository().setUser(uid, user.toMap());
 
       if (!mounted) return;
       Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.home, (route) => false);
