@@ -24,6 +24,9 @@ import 'rating_screen.dart';
 import 'recipient_details_screen.dart';
 import 'share_position_screen.dart';
 import '../../services/error_reporter.dart';
+import '../../repositories/driver_repository.dart';
+import '../../repositories/ride_repository.dart';
+import '../../repositories/user_repository.dart';
 
 /// Coordonnées approximatives du centre de Pointe-Noire, utilisées tant que
 /// la position de l'utilisateur n'est pas connue.
@@ -92,10 +95,7 @@ class _BookingScreenState extends State<BookingScreen> {
   Future<void> _recoverActiveRequest() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
-    final doc = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(uid)
-        .get();
+    final doc = await UserRepository().getUser(uid);
     final activeId = doc.data()?['clientActiveRideId'] as String?;
     if (activeId != null && mounted) {
       setState(() => _activeRequestId = activeId);
@@ -308,10 +308,7 @@ class _BookingScreenState extends State<BookingScreen> {
 
     setState(() => _submittingRequest = true);
     try {
-      final profile = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
+      final profile = await UserRepository().getUser(user.uid);
       final clientName = profile.data()?['name'] as String? ?? '';
 
       final request = RideRequest(
@@ -329,25 +326,20 @@ class _BookingScreenState extends State<BookingScreen> {
         contactRequesterInstead: _recipient?.contactRequesterInstead ?? false,
         price: _estimatedPrice,
       );
-      final requestRef = FirebaseFirestore.instance
-          .collection('ride_requests')
-          .doc();
-      final batch = FirebaseFirestore.instance.batch()
-        ..set(requestRef, request.toMap())
-        ..update(FirebaseFirestore.instance.collection('users').doc(user.uid), {
-          'clientActiveRideId': requestRef.id,
-        });
-      await batch.commit();
+      final requestId = await RideRepository().createRequest(
+        clientUid: user.uid,
+        data: request.toMap(),
+      );
 
       if (!mounted) return;
       setState(() {
-        _activeRequestId = requestRef.id;
+        _activeRequestId = requestId;
         _clientActiveRideCleared = false;
       });
       unawaited(_clientTracking.startTracking());
 
       try {
-        await DispatchService.start(rideId: requestRef.id);
+        await DispatchService.start(rideId: requestId);
       } catch (e) {
         debugPrint('Dispatch failed: $e');
         if (!mounted) return;
@@ -369,16 +361,12 @@ class _BookingScreenState extends State<BookingScreen> {
     final id = _activeRequestId;
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (id == null || uid == null) return;
-    final batch = FirebaseFirestore.instance.batch()
-      ..update(FirebaseFirestore.instance.collection('ride_requests').doc(id), {
-        'status': RideStatus.cancelled.firestoreValue,
-        'cancelReason': reason,
-        if (comment != null) 'cancelComment': comment,
-      })
-      ..update(FirebaseFirestore.instance.collection('users').doc(uid), {
-        'clientActiveRideId': null,
-      });
-    await batch.commit();
+    await RideRepository().cancelByClient(
+      rideId: id,
+      clientUid: uid,
+      reason: reason,
+      comment: comment,
+    );
     _clientActiveRideCleared = true;
     unawaited(_clientTracking.stopTracking());
   }
@@ -483,12 +471,7 @@ class _BookingScreenState extends State<BookingScreen> {
               StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
                 stream: (_activeRequestId != null &&
                         FirebaseAuth.instance.currentUser != null)
-                    ? FirebaseFirestore.instance
-                          .collection('users')
-                          .doc(FirebaseAuth.instance.currentUser!.uid)
-                          .collection('location')
-                          .doc('current')
-                          .snapshots()
+                    ? UserRepository().watchClientLocation(FirebaseAuth.instance.currentUser!.uid)
                     : const Stream.empty(),
                 builder: (context, myLocSnap) {
                   final myLocationData = myLocSnap.data?.data();
@@ -504,10 +487,7 @@ class _BookingScreenState extends State<BookingScreen> {
 
                   return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
                     stream: _activeRequestId != null
-                        ? FirebaseFirestore.instance
-                              .collection('ride_requests')
-                              .doc(_activeRequestId)
-                              .snapshots()
+                        ? RideRepository().watchRide(_activeRequestId)
                         : const Stream.empty(),
                     builder: (context, rideSnap) {
                       final rideData = rideSnap.data?.data();
@@ -523,12 +503,7 @@ class _BookingScreenState extends State<BookingScreen> {
                       }
 
                       return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-                        stream: FirebaseFirestore.instance
-                            .collection('driver_profiles')
-                            .doc(driverUid)
-                            .collection('location')
-                            .doc('current')
-                            .snapshots(),
+                        stream: DriverRepository().watchLocation(driverUid),
                         builder: (context, driverSnap) {
                           final locationData = driverSnap.data?.data();
                           LatLng? driverPos;
@@ -675,10 +650,7 @@ class _BookingScreenState extends State<BookingScreen> {
                     onClearRecipient: _clearRecipient,
                   )
                 : StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-                    stream: FirebaseFirestore.instance
-                        .collection('ride_requests')
-                        .doc(_activeRequestId)
-                        .snapshots(),
+                    stream: RideRepository().watchRide(_activeRequestId),
                     builder: (context, snapshot) {
                       final doc = snapshot.data;
                       final ride = (doc != null && doc.exists)
@@ -693,10 +665,7 @@ class _BookingScreenState extends State<BookingScreen> {
                         unawaited(_clientTracking.stopTracking());
                         final uid = FirebaseAuth.instance.currentUser?.uid;
                         if (uid != null) {
-                          FirebaseFirestore.instance
-                              .collection('users')
-                              .doc(uid)
-                              .update({'clientActiveRideId': null});
+                          UserRepository().updateUser(uid, {'clientActiveRideId': null});
                         }
                       }
                       return _RideStatusPanel(

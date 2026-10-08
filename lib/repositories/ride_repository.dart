@@ -71,6 +71,34 @@ class RideRepository {
     batch.update(UserRepository(_db).userRef(driverUid), {'driverActiveRideId': null});
   }
 
+  /// Crée la demande de course et marque le client comme ayant une course
+  /// active, dans un seul batch. Retourne l'identifiant de la course.
+  Future<String> createRequest({required String clientUid, required Json data}) async {
+    final ref = rideRef();
+    final batch = _db.batch()
+      ..set(ref, data)
+      ..update(UserRepository(_db).userRef(clientUid), {'clientActiveRideId': ref.id});
+    await batch.commit();
+    return ref.id;
+  }
+
+  /// Annule la course côté client et libère `clientActiveRideId`.
+  Future<void> cancelByClient({
+    required String rideId,
+    required String clientUid,
+    required String reason,
+    String? comment,
+  }) {
+    final batch = _db.batch()
+      ..update(rideRef(rideId), {
+        'status': RideStatus.cancelled.firestoreValue,
+        'cancelReason': reason,
+        if (comment != null) 'cancelComment': comment,
+      })
+      ..update(UserRepository(_db).userRef(clientUid), {'clientActiveRideId': null});
+    return batch.commit();
+  }
+
   WriteBatch batch() => _db.batch();
 
   Future<void> addIncident(Json data) => _db.collection('incidents').add(data);
