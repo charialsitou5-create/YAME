@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '../../core/constants/app_strings.dart';
 import '../../core/theme/app_colors.dart';
 import '../../services/recharge_service.dart';
+import '../../repositories/user_repository.dart';
+import '../../repositories/wallet_repository.dart';
 
 /// Recharge du solde chauffeur (espèces au guichet, mobile money, virement).
 /// Seul Mobile Money (MTN/Airtel) est branché à un opérateur pour l'instant.
@@ -21,10 +23,7 @@ class RechargeScreen extends StatelessWidget {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     String? initialPhone;
     if (uid != null) {
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .get();
+      final doc = await UserRepository().getUser(uid);
       initialPhone = doc.data()?['phone'] as String?;
     }
     if (!context.mounted) return;
@@ -80,12 +79,7 @@ class RechargeScreen extends StatelessWidget {
                           StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
                             stream: uid == null
                                 ? null
-                                : FirebaseFirestore.instance
-                                      .collection('driver_profiles')
-                                      .doc(uid)
-                                      .collection('wallet')
-                                      .doc('current')
-                                      .snapshots(),
+                                : WalletRepository().watchWallet(uid),
                             builder: (context, snapshot) {
                               final balance =
                                   snapshot.data?.data()?['balance'] as int? ??
