@@ -8,6 +8,8 @@ import '../../core/constants/app_strings.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/chat_message.dart';
 import '../../models/ride_request.dart';
+import '../../repositories/driver_repository.dart';
+import '../../repositories/ride_repository.dart';
 
 /// Conversation avec le chauffeur assigné à [ride] : infos chauffeur,
 /// statut de la course, messages en direct, envoi de texte et de position.
@@ -32,10 +34,7 @@ class _RideChatScreenState extends State<RideChatScreen> {
     super.dispose();
   }
 
-  CollectionReference<Map<String, dynamic>> get _messages => FirebaseFirestore.instance
-      .collection('ride_requests')
-      .doc(widget.ride.id)
-      .collection('messages');
+  CollectionReference<Map<String, dynamic>> get _messages => RideRepository().messages(widget.ride.id);
 
   void _showComingSoon() {
     ScaffoldMessenger.of(
@@ -133,10 +132,7 @@ class _RideChatScreenState extends State<RideChatScreen> {
         StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
           stream: widget.ride.driverUid == null
               ? null
-              : FirebaseFirestore.instance
-                  .collection('driver_profiles')
-                  .doc(widget.ride.driverUid)
-                  .snapshots(),
+              : DriverRepository().watchProfile(widget.ride.driverUid!),
           builder: (context, snapshot) {
             final vehicle = snapshot.data?.data();
             return Padding(

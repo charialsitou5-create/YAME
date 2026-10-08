@@ -14,7 +14,7 @@ class RideRepository {
   /// Référence d'une course ; sans [id], un identifiant est généré.
   DocumentReference<Json> rideRef([String? id]) => id == null ? _rides.doc() : _rides.doc(id);
 
-  CollectionReference<Json> messages(String rideId) => rideRef(rideId).collection('messages');
+  CollectionReference<Json> messages(String? rideId) => rideRef(rideId).collection('messages');
 
   Stream<DocumentSnapshot<Json>> watchRide(String id) => rideRef(id).snapshots();
 
