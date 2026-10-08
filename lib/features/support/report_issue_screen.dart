@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants/app_strings.dart';
 import '../../core/theme/app_colors.dart';
+import '../../models/my_report.dart';
+import '../../repositories/incident_repository.dart';
 import '../../repositories/ride_repository.dart';
 import '../../repositories/user_repository.dart';
 
@@ -58,17 +60,35 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
       final userDoc = await UserRepository().getUser(user.uid);
       final userData = userDoc.data();
 
-      await RideRepository().addIncident({
+      final message = _messageController.text.trim();
+      final createdAt = DateTime.now();
+      final incidentId = await RideRepository().addIncident({
         'kind': _kind.name,
         'category': _category,
-        'message': _messageController.text.trim(),
+        'message': message,
         'reporterUid': user.uid,
         'reporterName': userData?['name'] as String? ?? '',
         'reporterRole': userData?['role'] as String? ?? '',
         if (widget.rideId != null) 'rideId': widget.rideId,
         'status': 'open',
-        'createdAt': DateTime.now().toIso8601String(),
+        'createdAt': createdAt.toIso8601String(),
       });
+
+      // Mémorise le signalement pour pouvoir afficher les réponses plus tard
+      // (incidents/{id} n'est pas lisible par l'app). Un échec ici ne doit
+      // pas faire croire que l'envoi a échoué.
+      try {
+        await IncidentRepository().rememberReport(
+          user.uid,
+          MyReport(
+            id: incidentId,
+            kind: _kind.name,
+            category: _category,
+            message: message,
+            createdAt: createdAt,
+          ),
+        );
+      } catch (_) {}
 
       if (!mounted) return;
       ScaffoldMessenger.of(

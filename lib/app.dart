@@ -10,6 +10,9 @@ import 'routes/app_routes.dart';
 /// `BuildContext` puisqu'il s'exécute hors d'un `build()`).
 final scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
+/// Navigation depuis hors `build()` (ex : tap sur une notification push).
+final navigatorKey = GlobalKey<NavigatorState>();
+
 class YameApp extends StatelessWidget {
   const YameApp({super.key});
 
@@ -17,6 +20,7 @@ class YameApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: AppStrings.appName,
+      navigatorKey: navigatorKey,
       scaffoldMessengerKey: scaffoldMessengerKey,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,

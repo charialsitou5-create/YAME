@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../app.dart';
+import '../features/support/my_reports_screen.dart';
 import '../repositories/user_repository.dart';
 
 /// Service gérant l'enregistrement des tokens Push FCM et la réception
@@ -13,6 +14,20 @@ class NotificationService {
   final FirebaseMessaging _fcm = FirebaseMessaging.instance;
 
   bool _foregroundListenerAttached = false;
+  static bool _openedListenerAttached = false;
+
+  void _openFromMessage(RemoteMessage message) {
+    if (message.data['type'] != 'incident_reply') return;
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final nav = navigatorKey.currentState;
+    if (uid == null || nav == null) return;
+    nav.push(MaterialPageRoute(
+      builder: (_) => MyReportsScreen(
+        uid: uid,
+        openIncidentId: message.data['incidentId'] as String?,
+      ),
+    ));
+  }
 
   Future<void> _writeToken(String uid, String token) {
     return UserRepository().setUser(uid, {
@@ -47,6 +62,15 @@ class NotificationService {
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid != null) _writeToken(uid, token);
     });
+
+    // Tap sur une notification `incident_reply` (app en arrière-plan ou
+    // démarrée par la notification) : ouvre le signalement concerné.
+    if (!_openedListenerAttached) {
+      _openedListenerAttached = true;
+      FirebaseMessaging.onMessageOpenedApp.listen(_openFromMessage);
+      final initial = await _fcm.getInitialMessage();
+      if (initial != null) _openFromMessage(initial);
+    }
 
     // Écoute en premier plan (Foreground Notifications) — l'app ne reçoit
     // aucun affichage système automatique pendant qu'elle est ouverte,
