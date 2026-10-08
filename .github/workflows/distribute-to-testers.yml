@@ -8,7 +8,12 @@ on:
     branches: [main]
 
 jobs:
+  # Garde-fou : pas d'envoi aux testeurs si analyse/tests échouent.
+  checks:
+    uses: ./.github/workflows/ci.yml
+
   build-and-distribute:
+    needs: checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
