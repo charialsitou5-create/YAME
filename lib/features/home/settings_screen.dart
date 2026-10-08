@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../core/constants/app_strings.dart';
 import '../../core/theme/app_colors.dart';
 import '../../services/notification_service.dart';
+import '../../repositories/user_repository.dart';
 
 /// Réglages de compte — volontairement minimal : seules les Notifications
 /// sont un contrôle réel pour l'instant. Désactiver retire le token FCM du
@@ -73,7 +74,7 @@ class _NotificationsToggleRowState extends State<_NotificationsToggleRow> {
       if (enabled) {
         await NotificationService().initializeAndRegisterToken();
       } else {
-        await FirebaseFirestore.instance.collection('users').doc(widget.uid).update({
+        await UserRepository().updateUser(widget.uid, {
           'fcmToken': FieldValue.delete(),
         });
       }
@@ -85,7 +86,7 @@ class _NotificationsToggleRowState extends State<_NotificationsToggleRow> {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance.collection('users').doc(widget.uid).snapshots(),
+      stream: UserRepository().watchUser(widget.uid),
       builder: (context, snapshot) {
         final enabled = snapshot.data?.data()?['fcmToken'] != null;
         return ListTile(
