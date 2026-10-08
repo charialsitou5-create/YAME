@@ -219,13 +219,23 @@ service cloud.firestore {
     // ignore ces règles). Un utilisateur ne voit que ses propres
     // signalements et ne peut jamais les modifier une fois envoyés.
     match /incidents/{incidentId} {
-      allow read: if request.auth != null && resource.data.reporterUid == request.auth.uid;
+      // Pas de lecture du document par l'auteur : yame-admin y écrit des
+      // données internes (notes, emails d'admins : takenBy, resolvedBy...).
+      // L'app n'a besoin que des réponses (sous-collection `replies`).
+      allow read: if false;
 
       allow create: if request.auth != null
         && request.resource.data.reporterUid == request.auth.uid
         && request.resource.data.status == 'open';
 
       allow update, delete: if false;
+
+      // Réponses de l'équipe : lisibles par l'auteur du signalement.
+      match /replies/{replyId} {
+        allow read: if request.auth != null
+          && get(/databases/$(database)/documents/incidents/$(incidentId)).data.reporterUid == request.auth.uid;
+        allow write: if false;
+      }
     }
 
     // Réglages de l'app (grille tarifaire `app_config/pricing`) : lisibles par

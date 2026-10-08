@@ -196,10 +196,19 @@ describe('users.activeMode', () => {
 });
 
 describe('incidents', () => {
-  it('lisibles uniquement par leur auteur', async () => {
-    await seed((d) => setDoc(doc(d, 'incidents/i1'), { reporterUid: 'a', status: 'open' }));
-    await assertSucceeds(getDoc(doc(db('a'), 'incidents/i1')));
+  it('le document (notes internes, emails admin) n\'est lisible par personne côté app', async () => {
+    await seed((d) => setDoc(doc(d, 'incidents/i1'), { reporterUid: 'a', status: 'open', notes: [{ text: 'interne', by: 'admin@x.com' }] }));
+    await assertFails(getDoc(doc(db('a'), 'incidents/i1')));
     await assertFails(getDoc(doc(db('b'), 'incidents/i1')));
+  });
+  it('les réponses sont lisibles par l\'auteur du signalement seulement', async () => {
+    await seed(async (d) => {
+      await setDoc(doc(d, 'incidents/i1'), { reporterUid: 'a', status: 'answered' });
+      await setDoc(doc(d, 'incidents/i1/replies/r1'), { author: 'admin', text: 'bonjour' });
+    });
+    await assertSucceeds(getDoc(doc(db('a'), 'incidents/i1/replies/r1')));
+    await assertFails(getDoc(doc(db('b'), 'incidents/i1/replies/r1')));
+    await assertFails(setDoc(doc(db('a'), 'incidents/i1/replies/r2'), { author: 'admin', text: 'faux' }));
   });
   it('création en open pour soi seulement, jamais modifiable', async () => {
     await assertSucceeds(setDoc(doc(db('a'), 'incidents/i2'), { reporterUid: 'a', status: 'open' }));
