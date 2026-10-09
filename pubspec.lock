@@ -253,10 +253,10 @@ packages:
     dependency: "direct main"
     description:
       name: firebase_auth
-      sha256: f03218ba7024e289f797ea8f713f92e38a2bd1322e2d925454c849661206e581
+      sha256: "144fa22926b629e797ecc757db5d31b145aeedf6018160296dae945d98a98fb5"
       url: "https://pub.dev"
     source: hosted
-    version: "6.6.0"
+    version: "6.7.0"
   firebase_auth_platform_interface:
     dependency: transitive
     description:
