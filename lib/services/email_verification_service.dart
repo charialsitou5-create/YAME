@@ -1,6 +1,8 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../core/constants/app_config.dart';
+import 'event_logger.dart';
 
 /// Un compte doit vérifier son e-mail seulement s'il s'est inscrit avec un
 /// mot de passe et que l'adresse n'est pas encore confirmée. Google /
@@ -53,12 +55,40 @@ class FirebaseEmailVerificationSource implements EmailVerificationSource {
   }
 }
 
+/// Réglage d'exigence de l'e-mail vérifié, piloté depuis le panneau admin
+/// (document `app_config/auth`). Tant qu'il n'a pas été lu (hors ligne,
+/// pas encore connecté), on retombe sur [AppConfig.requireVerifiedEmail].
+class AuthPolicy {
+  AuthPolicy._();
+
+  static bool? _remote;
+
+  static bool get requireVerifiedEmail => _remote ?? AppConfig.requireVerifiedEmail;
+
+  /// À appeler une fois connecté (les règles Firestore exigent une session).
+  static Future<void> refresh([FirebaseFirestore? firestore]) async {
+    try {
+      final snap = await (firestore ?? FirebaseFirestore.instance)
+          .collection('app_config')
+          .doc('auth')
+          .get();
+      _remote = snap.data()?['requireVerifiedEmail'] == true;
+    } catch (_) {
+      // On garde la dernière valeur connue.
+    }
+  }
+
+  static void setForTest(bool? value) => _remote = value;
+}
+
 /// Porte « e-mail vérifié » à appeler avant commander / passer en ligne.
-/// Sans effet tant que [AppConfig.requireVerifiedEmail] est `false`.
+/// Sans effet tant que l'exigence n'est pas activée (admin ou [AppConfig]).
 bool emailVerificationBlocksAction([EmailVerificationSource? source]) {
-  if (!AppConfig.requireVerifiedEmail) return false;
-  return emailGateBlocks(
+  if (!AuthPolicy.requireVerifiedEmail) return false;
+  final blocked = emailGateBlocks(
     requireVerifiedEmail: true,
     needsVerification: (source ?? FirebaseEmailVerificationSource()).needsVerification,
   );
+  if (blocked) AppEventLogger.log('email_verification_blocked');
+  return blocked;
 }

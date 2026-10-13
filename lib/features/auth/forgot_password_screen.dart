@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants/app_strings.dart';
 import '../../core/theme/app_colors.dart';
+import '../../services/event_logger.dart';
 
 typedef PasswordResetSender = Future<void> Function(String email);
 
@@ -62,8 +63,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     });
     try {
       await widget.sender(_emailController.text.trim());
+      AppEventLogger.log('password_reset_requested', email: _emailController.text.trim(), screen: 'forgot_password');
       if (mounted) setState(() => _sent = true);
     } on FirebaseAuthException catch (e) {
+      AppEventLogger.log(authEventFor('reset', e.code), code: e.code, email: _emailController.text.trim(), screen: 'forgot_password');
       final message = passwordResetErrorMessage(e);
       if (!mounted) return;
       setState(() {
@@ -73,7 +76,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           _error = message;
         }
       });
-    } catch (_) {
+    } catch (e) {
+      AppEventLogger.log('password_reset_failed', message: e.toString(), screen: 'forgot_password');
       if (mounted) setState(() => _error = AppStrings.errorGeneric);
     } finally {
       if (mounted) setState(() => _submitting = false);

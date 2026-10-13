@@ -19,4 +19,7 @@ class AppConfig {
   /// par défaut : le bandeau « Vérifiez votre e-mail » reste alors purement
   /// informatif (non bloquant).
   static const requireVerifiedEmail = false;
+
+  /// Version envoyée avec chaque événement du journal d'erreurs (à garder alignée sur pubspec.yaml).
+  static const appVersion = '1.0.0+5';
 }

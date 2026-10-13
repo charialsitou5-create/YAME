@@ -6,6 +6,7 @@ import '../../core/constants/app_strings.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/social_button.dart';
 import '../../routes/app_routes.dart';
+import '../../services/event_logger.dart';
 import '../../services/social_auth_service.dart';
 import 'forgot_password_screen.dart';
 
@@ -50,8 +51,10 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
       Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.home, (route) => false);
     } on FirebaseAuthException catch (e) {
+      AppEventLogger.log(authEventFor('login', e.code), code: e.code, email: _emailController.text.trim(), screen: 'login');
       setState(() => _errorMessage = _messageForAuthError(e));
-    } catch (_) {
+    } catch (e) {
+      AppEventLogger.log('login_failed', message: e.toString(), email: _emailController.text.trim(), screen: 'login');
       setState(() => _errorMessage = AppStrings.errorGeneric);
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -96,8 +99,10 @@ class _LoginScreenState extends State<LoginScreen> {
         (route) => false,
       );
     } on FirebaseAuthException catch (e) {
+      AppEventLogger.log('social_login_failed', code: e.code, screen: 'login');
       setState(() => _errorMessage = _messageForAuthError(e));
-    } catch (_) {
+    } catch (e) {
+      AppEventLogger.log('social_login_failed', message: e.toString(), screen: 'login');
       setState(() => _errorMessage = AppStrings.socialAuthError);
     } finally {
       if (mounted) setState(() => _submitting = false);

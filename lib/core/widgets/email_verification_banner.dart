@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../services/email_verification_service.dart';
+import '../../services/event_logger.dart';
 import '../constants/app_strings.dart';
 import '../theme/app_colors.dart';
 
@@ -36,8 +37,10 @@ class _EmailVerificationBannerState extends State<EmailVerificationBanner> {
     setState(() => _busy = true);
     try {
       await _source.resend();
+      AppEventLogger.log('email_verification_resent', screen: 'banner');
       _toast(AppStrings.emailVerifyResent);
-    } catch (_) {
+    } catch (e) {
+      AppEventLogger.log('email_verification_failed', message: e.toString(), screen: 'banner');
       _toast(AppStrings.errorGeneric);
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -50,6 +53,7 @@ class _EmailVerificationBannerState extends State<EmailVerificationBanner> {
       final verified = await _source.reloadAndCheck();
       if (!mounted) return;
       if (verified) {
+        AppEventLogger.log('email_verified', screen: 'banner');
         setState(() => _visible = false);
         widget.onVisibilityChanged?.call(false);
         _toast(AppStrings.emailVerifyVerified);

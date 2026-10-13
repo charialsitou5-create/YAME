@@ -1,6 +1,8 @@
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 
+import 'event_logger.dart';
+
 /// Signature of the sink receiving non-fatal errors.
 typedef ErrorSink = void Function(
   Object error,
@@ -26,6 +28,12 @@ class ErrorReporter {
         override(error, stack, context);
         return;
       }
+      AppEventLogger.log(
+        'app_error',
+        code: error.runtimeType.toString(),
+        message: error.toString(),
+        screen: context,
+      );
       if (kDebugMode) {
         debugPrint('[ErrorReporter] ${context ?? 'unknown'}: $error');
         if (stack != null) debugPrint(stack.toString());
