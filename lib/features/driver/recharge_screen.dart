@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -76,7 +75,7 @@ class RechargeScreen extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 6),
-                          StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                          StreamBuilder<Doc>(
                             stream: uid == null
                                 ? null
                                 : WalletRepository().watchWallet(uid),

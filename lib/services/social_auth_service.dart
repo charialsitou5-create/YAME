@@ -171,8 +171,7 @@ class SocialAuthService {
     VehicleType? vehicleType,
   }) async {
     final uid = credential.user!.uid;
-    final docRef = UserRepository().userRef(uid);
-    final doc = await docRef.get();
+    final doc = await UserRepository().getUser(uid);
     if (doc.exists) {
       final activeModeValue = doc.data()?['activeMode'] as String?;
       return (false, AppMode.fromFirestoreValue(activeModeValue ?? ''));
@@ -186,7 +185,7 @@ class SocialAuthService {
       activeMode: vehicleType == null ? AppMode.client : AppMode.driver,
       driverVehicleType: vehicleType,
     );
-    await docRef.set(user.toMap());
+    await UserRepository().setUser(uid, user.toMap());
     return (true, null);
   }
 

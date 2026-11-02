@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -69,7 +68,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildBody(String uid) {
-    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+    return StreamBuilder<Doc>(
       stream: UserRepository().watchUser(uid),
       builder: (context, snapshot) {
         final data = snapshot.data?.data();
@@ -90,7 +89,7 @@ class _HomeScreenState extends State<HomeScreen> {
         if (!user.vehicleRegistered) {
           return DriverIntroScreen(vehicleType: vehicleType);
         }
-        return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+        return StreamBuilder<Doc>(
           stream: DriverRepository().watchProfile(uid),
           builder: (context, profileSnapshot) {
             final status =

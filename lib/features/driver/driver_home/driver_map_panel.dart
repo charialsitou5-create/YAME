@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -18,7 +17,6 @@ class DriverMapPanel extends StatelessWidget {
   const DriverMapPanel({
     super.key,
     required this.mapController,
-    required this.firestore,
     required this.uid,
     required this.activeRideId,
     required this.route,
@@ -27,7 +25,6 @@ class DriverMapPanel extends StatelessWidget {
   });
 
   final MapController mapController;
-  final FirebaseFirestore firestore;
   final String? uid;
   final String? activeRideId;
   final RouteResult? route;
@@ -58,8 +55,8 @@ class DriverMapPanel extends StatelessWidget {
                     userAgentPackageName: 'com.yame.yame',
                   ),
                   if (uid != null)
-                    StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-                      stream: DriverRepository(firestore).watchLocation(uid),
+                    StreamBuilder<Doc>(
+                      stream: DriverRepository().watchLocation(uid),
                       builder: (context, locSnap) {
                         final data = locSnap.data?.data();
                         LatLng? driverPos;
@@ -92,9 +89,9 @@ class DriverMapPanel extends StatelessWidget {
                         }
 
                         return StreamBuilder<
-                          DocumentSnapshot<Map<String, dynamic>>
+                          Doc
                         >(
-                          stream: RideRepository(firestore)
+                          stream: RideRepository()
                               .watchRide(activeRideId),
                           builder: (context, rideSnap) {
                             final rideData = rideSnap.data?.data();
@@ -136,11 +133,11 @@ class DriverMapPanel extends StatelessWidget {
                             }
 
                             return StreamBuilder<
-                              DocumentSnapshot<Map<String, dynamic>>
+                              Doc
                             >(
                               stream: clientUid == null
                                   ? const Stream.empty()
-                                  : UserRepository(firestore)
+                                  : UserRepository()
                                         .watchClientLocation(clientUid),
                               builder: (context, clientLocSnap) {
                                 final clientData = clientLocSnap.data?.data();

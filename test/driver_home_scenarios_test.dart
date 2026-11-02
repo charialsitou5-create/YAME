@@ -1,4 +1,3 @@
-import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
@@ -8,6 +7,8 @@ import 'package:yame/features/driver/driver_home_screen.dart';
 import 'package:yame/models/vehicle_type.dart';
 import 'package:yame/services/driver_tracking_service.dart';
 import 'package:yame/services/routing_service.dart';
+
+import 'support/fake_backend.dart';
 
 class _NoGps extends DriverTrackingService {
   @override
@@ -35,30 +36,25 @@ Map<String, dynamic> _ride({String status = 'searching', bool offered = true, in
       'price': ?price,
     };
 
-Future<FakeFirebaseFirestore> _db({
+FakeBackend _db({
   int balance = 5000,
   bool online = true,
   String? activeRide,
   Map<String, dynamic>? ride,
   LatLng? driverLocation,
-}) async {
-  final db = FakeFirebaseFirestore();
-  await db.collection('users').doc(_uid).set({
-    'driverOnline': online,
-    'driverActiveRideId': activeRide,
-  });
-  await db.collection('driver_profiles').doc(_uid).collection('wallet').doc('current').set({'balance': balance});
+}) {
+  final db = FakeBackend();
+  db.users[_uid] = {if (activeRide != null) 'driverActiveRideId': activeRide};
+  db.driverProfiles[_uid] = {'driverOnline': online};
+  db.wallets[_uid] = {'balance': balance};
   if (driverLocation != null) {
-    await db.collection('driver_profiles').doc(_uid).collection('location').doc('current').set({
-      'lat': driverLocation.latitude,
-      'lng': driverLocation.longitude,
-    });
+    db.driverLocations[_uid] = {'lat': driverLocation.latitude, 'lng': driverLocation.longitude};
   }
-  if (ride != null) await db.collection('ride_requests').doc('r1').set(ride);
+  if (ride != null) db.rides['r1'] = {...ride}..removeWhere((_, v) => v == null);
   return db;
 }
 
-Future<void> _pump(WidgetTester t, FakeFirebaseFirestore db, Size size, double scale) async {
+Future<void> _pump(WidgetTester t, FakeBackend db, Size size, double scale) async {
   t.view.physicalSize = size;
   t.view.devicePixelRatio = 1;
   addTearDown(t.view.reset);
@@ -70,7 +66,6 @@ Future<void> _pump(WidgetTester t, FakeFirebaseFirestore db, Size size, double s
     home: DriverHomeScreen(
       vehicleType: VehicleType.car,
       driverName: 'Test',
-      firestore: db,
       uid: _uid,
       trackingService: _NoGps(),
       // Jamais de vrai appel réseau OSRM dans les tests widgets.
@@ -100,7 +95,7 @@ void main() {
       final tag = '${size.width.toInt()}x${size.height.toInt()} x$scale';
 
       testWidgets('offre de course $tag', (t) async {
-        final db = await _db(ride: _ride());
+        final db = _db(ride: _ride());
         await _pump(t, db, size, scale);
         await _see(t, AppStrings.driverAccept);
         expect(find.text(AppStrings.driverAccept), findsOneWidget);
@@ -108,7 +103,7 @@ void main() {
       });
 
       testWidgets('course active $tag', (t) async {
-        final db = await _db(activeRide: 'r1', ride: _ride(status: 'accepted', offered: false));
+        final db = _db(activeRide: 'r1', ride: _ride(status: 'accepted', offered: false));
         await _pump(t, db, size, scale);
         await _see(t, AppStrings.driverCancelRide);
         expect(find.text(AppStrings.driverCancelRide), findsOneWidget);
@@ -116,7 +111,7 @@ void main() {
       });
 
       testWidgets('en ligne sans demande $tag', (t) async {
-        final db = await _db();
+        final db = _db();
         await _pump(t, db, size, scale);
         await _see(t, AppStrings.driverNoRequests);
         expect(find.text(AppStrings.driverNoRequests), findsOneWidget);
@@ -124,13 +119,13 @@ void main() {
       });
 
       testWidgets('hors ligne $tag', (t) async {
-        final db = await _db(online: false);
+        final db = _db(online: false);
         await _pump(t, db, size, scale);
         expect(t.takeException(), isNull);
       });
 
       testWidgets('solde épuisé $tag', (t) async {
-        final db = await _db(balance: 0, online: false);
+        final db = _db(balance: 0, online: false);
         await _pump(t, db, size, scale);
         expect(t.takeException(), isNull);
       });
@@ -138,7 +133,7 @@ void main() {
   }
 
   testWidgets('annulation : confirmation puis course annulée', (t) async {
-    final db = await _db(activeRide: 'r1', ride: _ride(status: 'accepted', offered: false));
+    final db = _db(activeRide: 'r1', ride: _ride(status: 'accepted', offered: false));
     await _pump(t, db, const Size(360, 640), 1.3);
     final cancel = find.text(AppStrings.driverCancelRide);
     await _see(t, AppStrings.driverCancelRide);
@@ -151,7 +146,7 @@ void main() {
     // « Non, continuer » ne change rien
     await t.tap(find.text(AppStrings.driverCancelConfirmKeep));
     await t.pumpAndSettle();
-    expect((await db.collection('ride_requests').doc('r1').get()).data()!['status'], 'accepted');
+    expect(db.rides['r1']!['status'], 'accepted');
 
     // « Oui, annuler » annule
     await _see(t, AppStrings.driverCancelRide);
@@ -161,13 +156,13 @@ void main() {
     await t.pumpAndSettle();
     await t.tap(find.text(AppStrings.driverCancelConfirmYes));
     await t.pumpAndSettle();
-    expect((await db.collection('ride_requests').doc('r1').get()).data()!['status'], 'cancelled');
-    expect((await db.collection('users').doc(_uid).get()).data()!['driverActiveRideId'], isNull);
+    expect(db.rides['r1']!['status'], 'cancelled');
+    expect(db.users[_uid]!['driverActiveRideId'], isNull);
     expect(find.text(AppStrings.driverCancelRide), findsNothing);
   });
 
   testWidgets('offre de course affiche le prix quoté au client', (t) async {
-    final db = await _db(ride: _ride(price: 2500));
+    final db = _db(ride: _ride(price: 2500));
     await _pump(t, db, const Size(360, 640), 1.3);
     await _see(t, '${AppStrings.driverOfferPrice} — ${formatFcfa(2500)} FCFA');
     expect(find.text('${AppStrings.driverOfferPrice} — ${formatFcfa(2500)} FCFA'), findsOneWidget);
@@ -175,7 +170,7 @@ void main() {
   });
 
   testWidgets('offre de course sans prix (course créée avant ce champ) ne casse pas', (t) async {
-    final db = await _db(ride: _ride());
+    final db = _db(ride: _ride());
     await _pump(t, db, const Size(360, 640), 1.3);
     await _see(t, AppStrings.driverAccept);
     expect(find.textContaining(AppStrings.driverOfferPrice), findsNothing);
@@ -183,7 +178,7 @@ void main() {
   });
 
   testWidgets('course active affiche le temps d\'arrivée estimé une fois l\'itinéraire reçu', (t) async {
-    final db = await _db(
+    _db(
       activeRide: 'r1',
       ride: _ride(status: 'accepted', offered: false),
       driverLocation: const LatLng(-4.79, 11.87),
@@ -196,8 +191,7 @@ void main() {
       home: DriverHomeScreen(
         vehicleType: VehicleType.car,
         driverName: 'Test',
-        firestore: db,
-        uid: _uid,
+          uid: _uid,
         trackingService: _NoGps(),
         routeFetcher: ({required from, required to}) async => const RouteResult(
           polyline: [LatLng(-4.79, 11.87), LatLng(-4.78, 11.86)],
@@ -221,7 +215,7 @@ void main() {
   testWidgets(
     'course active progresse accepted -> arrived -> inProgress -> completed sans sauter d\'étape',
     (t) async {
-      final db = await _db(activeRide: 'r1', ride: _ride(status: 'accepted', offered: false));
+      final db = _db(activeRide: 'r1', ride: _ride(status: 'accepted', offered: false));
       await _pump(t, db, const Size(360, 640), 1.3);
 
       // accepted : "Je suis arrivé" est visible, "Terminer" ne l'est pas encore.
@@ -234,7 +228,7 @@ void main() {
       await t.pump();
       await t.tap(markArrived);
       await t.pumpAndSettle();
-      expect((await db.collection('ride_requests').doc('r1').get()).data()!['status'], 'arrived');
+      expect(db.rides['r1']!['status'], 'arrived');
 
       // arrived : "Client à bord" est visible.
       await _see(t, AppStrings.driverStartRide);
@@ -245,7 +239,7 @@ void main() {
       await t.pump();
       await t.tap(startRide);
       await t.pumpAndSettle();
-      expect((await db.collection('ride_requests').doc('r1').get()).data()!['status'], 'inProgress');
+      expect(db.rides['r1']!['status'], 'inProgress');
 
       // inProgress : "Terminer la course" (comportement historique) est visible.
       await _see(t, AppStrings.driverComplete);
@@ -256,7 +250,7 @@ void main() {
       await t.pump();
       await t.tap(complete);
       await t.pumpAndSettle();
-      expect((await db.collection('ride_requests').doc('r1').get()).data()!['status'], 'completed');
+      expect(db.rides['r1']!['status'], 'completed');
       expect(find.text(AppStrings.driverComplete), findsNothing);
     },
   );

@@ -1,7 +1,7 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../core/constants/app_config.dart';
+import '../repositories/config_repository.dart';
 import 'event_logger.dart';
 
 /// Un compte doit vérifier son e-mail seulement s'il s'est inscrit avec un
@@ -65,13 +65,10 @@ class AuthPolicy {
 
   static bool get requireVerifiedEmail => _remote ?? AppConfig.requireVerifiedEmail;
 
-  /// À appeler une fois connecté (les règles Firestore exigent une session).
-  static Future<void> refresh([FirebaseFirestore? firestore]) async {
+  /// À appeler une fois connecté (la RLS exige une session).
+  static Future<void> refresh([ConfigRepository? config]) async {
     try {
-      final snap = await (firestore ?? FirebaseFirestore.instance)
-          .collection('app_config')
-          .doc('auth')
-          .get();
+      final snap = await (config ?? ConfigRepository()).getAuthPolicy();
       _remote = snap.data()?['requireVerifiedEmail'] == true;
     } catch (_) {
       // On garde la dernière valeur connue.

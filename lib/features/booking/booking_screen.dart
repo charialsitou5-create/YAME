@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -373,7 +372,6 @@ class _BookingScreenState extends State<BookingScreen> {
         price: _estimatedPrice,
       );
       final requestId = await RideRepository().createRequest(
-        clientUid: user.uid,
         data: request.toMap(),
       );
 
@@ -409,7 +407,6 @@ class _BookingScreenState extends State<BookingScreen> {
     if (id == null || uid == null) return;
     await RideRepository().cancelByClient(
       rideId: id,
-      clientUid: uid,
       reason: reason,
       comment: comment,
     );
@@ -514,7 +511,7 @@ class _BookingScreenState extends State<BookingScreen> {
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.yame.yame',
               ),
-              StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+              StreamBuilder<Doc>(
                 stream: (_activeRequestId != null &&
                         FirebaseAuth.instance.currentUser != null)
                     ? UserRepository().watchClientLocation(FirebaseAuth.instance.currentUser!.uid)
@@ -531,7 +528,7 @@ class _BookingScreenState extends State<BookingScreen> {
                     );
                   }
 
-                  return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                  return StreamBuilder<Doc>(
                     stream: _activeRequestId != null
                         ? RideRepository().watchRide(_activeRequestId)
                         : const Stream.empty(),
@@ -548,7 +545,7 @@ class _BookingScreenState extends State<BookingScreen> {
                         );
                       }
 
-                      return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                      return StreamBuilder<Doc>(
                         stream: DriverRepository().watchLocation(driverUid),
                         builder: (context, driverSnap) {
                           final locationData = driverSnap.data?.data();
@@ -695,7 +692,7 @@ class _BookingScreenState extends State<BookingScreen> {
                     onEditRecipient: _editRecipient,
                     onClearRecipient: _clearRecipient,
                   )
-                : StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                : StreamBuilder<Doc>(
                     stream: RideRepository().watchRide(_activeRequestId),
                     builder: (context, snapshot) {
                       final doc = snapshot.data;

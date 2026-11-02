@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:yame/repositories/doc.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_strings.dart';
@@ -17,11 +17,9 @@ class ActiveRide extends StatelessWidget {
     required this.onAdvance,
     required this.onUnavailable,
     required this.onClientCancelled,
-    required this.firestore,
     required this.eta,
   });
 
-  final FirebaseFirestore firestore;
   final String rideId;
   final ValueChanged<RideStatus> onEnd;
 
@@ -39,8 +37,8 @@ class ActiveRide extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: RideRepository(firestore).watchRide(rideId),
+    return StreamBuilder<Doc>(
+      stream: RideRepository().watchRide(rideId),
       builder: (context, snapshot) {
         if (!snapshot.hasData || !snapshot.data!.exists) {
           // Le chauffeur a perdu l'accès au document (course annulée/

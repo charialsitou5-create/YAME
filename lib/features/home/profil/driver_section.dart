@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_strings.dart';
@@ -66,7 +65,7 @@ class DriverSection extends StatelessWidget {
       );
     }
 
-    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+    return StreamBuilder<Doc>(
       stream: DriverRepository().watchProfile(uid),
       builder: (context, snapshot) {
         final status =
@@ -127,7 +126,7 @@ class DriverWalletRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+    return StreamBuilder<Doc>(
       stream: WalletRepository().watchWallet(uid),
       builder: (context, snapshot) {
         final balance = snapshot.data?.data()?['balance'] as int? ?? 0;

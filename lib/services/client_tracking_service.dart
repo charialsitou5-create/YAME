@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:geolocator/geolocator.dart';
 import './error_reporter.dart';
@@ -46,14 +45,7 @@ class ClientTrackingService {
 
   Future<void> _updateClientLocationInFirestore(String uid, Position position) async {
     try {
-      await UserRepository().clientLocationRef(uid)
-          .set({
-        'lat': position.latitude,
-        'lng': position.longitude,
-        'heading': position.heading,
-        'speed': position.speed,
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      await UserRepository().publishClientLocation(uid, position.latitude, position.longitude);
     } catch (e, st) {
       ErrorReporter.report(e, st, context: 'client_tracking.publish_location');
       }
@@ -70,8 +62,7 @@ class ClientTrackingService {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
     try {
-      await UserRepository().clientLocationRef(uid)
-          .set({'activeDriverUid': FieldValue.delete()}, SetOptions(merge: true));
+      await UserRepository().clearActiveDriver(uid);
     } catch (e, st) {
       ErrorReporter.report(e, st, context: 'client_tracking.clear_active_driver');
       }

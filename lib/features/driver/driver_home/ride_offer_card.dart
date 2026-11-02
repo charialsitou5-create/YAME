@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:yame/repositories/doc.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_strings.dart';
@@ -14,20 +14,18 @@ class RideOfferCard extends StatelessWidget {
   const RideOfferCard({
     super.key,
     required this.onRespond,
-    required this.firestore,
     required this.uid,
   });
 
   final void Function(RideRequest request, bool accept) onRespond;
-  final FirebaseFirestore firestore;
   final String? uid;
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+    return StreamBuilder<DocList>(
       stream: uid == null
           ? null
-          : RideRepository(firestore).watchOfferedRide(uid!),
+          : RideRepository().watchOfferedRide(uid!),
       builder: (context, snapshot) {
         final docs = snapshot.data?.docs ?? [];
         if (docs.isEmpty) {

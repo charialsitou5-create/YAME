@@ -1,6 +1,6 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../repositories/doc.dart';
 import 'vehicle_type.dart';
 
 enum RideStatus {
@@ -30,7 +30,7 @@ enum RideStatus {
   }
 }
 
-/// Une demande de course, stockée dans Firestore `ride_requests/{id}`.
+/// Une demande de course, stockée dans la table `ride_requests`.
 class RideRequest {
   const RideRequest({
     this.id,
@@ -109,11 +109,10 @@ class RideRequest {
       'recipientInstructions': recipientInstructions,
       'contactRequesterInstead': contactRequesterInstead,
       if (price != null) 'price': price,
-      'createdAt': FieldValue.serverTimestamp(),
     };
   }
 
-  factory RideRequest.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
+  factory RideRequest.fromDoc(Doc doc) {
     final data = doc.data()!;
     final pickupMap = data['pickup'] as Map<String, dynamic>;
     final destinationMap = data['destination'] as Map<String, dynamic>;

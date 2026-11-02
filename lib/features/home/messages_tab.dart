@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:yame/repositories/doc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -21,7 +21,7 @@ class MessagesTab extends StatelessWidget {
     final uid = FirebaseAuth.instance.currentUser?.uid;
 
     return SafeArea(
-      child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      child: StreamBuilder<DocList>(
         stream: uid == null
             ? null
             : RideRepository().watchClientRidesWithStatus(uid, [

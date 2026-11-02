@@ -1,12 +1,12 @@
 import 'dart:async';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../core/constants/app_strings.dart';
 import '../../../models/ride_request.dart';
+import '../../../repositories/driver_repository.dart';
 import '../../../repositories/ride_repository.dart';
 import '../../../repositories/user_repository.dart';
 import '../../../services/dispatch_response_service.dart';
@@ -27,7 +27,6 @@ typedef RouteFetcher = Future<RouteResult?> Function({
 /// les mouvements de carte par [onMoveMap].
 class DriverHomeController extends ChangeNotifier {
   DriverHomeController({
-    required this.db,
     required this.uid,
     required this.trackingService,
     this.routeFetcher,
@@ -36,7 +35,6 @@ class DriverHomeController extends ChangeNotifier {
     bool Function()? emailBlocks,
   }) : _emailBlocks = emailBlocks ?? (() => emailVerificationBlocksAction());
 
-  final FirebaseFirestore db;
   final String? uid;
   final DriverTrackingService trackingService;
   final RouteFetcher? routeFetcher;
@@ -129,7 +127,7 @@ class DriverHomeController extends ChangeNotifier {
   Future<void> _recoverActiveRide() async {
     final id = uid;
     if (id == null) return;
-    final doc = await UserRepository(db).getUser(id);
+    final doc = await UserRepository().getUser(id);
     final activeId = doc.data()?['driverActiveRideId'] as String?;
     final wasOnline = doc.data()?['driverOnline'] as bool? ?? false;
     if (_disposed) return;
@@ -155,7 +153,7 @@ class DriverHomeController extends ChangeNotifier {
     notifyListeners();
     final id = uid;
     if (id != null) {
-      UserRepository(db).updateUser(id, {'driverOnline': value});
+      UserRepository().updateUser(id, {'driverOnline': value});
     }
     if (value) {
       trackingService.startTracking();
@@ -182,10 +180,10 @@ class DriverHomeController extends ChangeNotifier {
   /// sur ride_requests/{id}, avec un délai de 15s.
   Future<void> _waitForAssignmentConfirmation(String id) async {
     final completer = Completer<bool>();
-    StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? subscription;
+    StreamSubscription<Doc>? subscription;
     Timer? timeoutTimer;
 
-    subscription = RideRepository(db).watchRide(id).listen((snapshot) {
+    subscription = RideRepository().watchRide(id).listen((snapshot) {
       final data = snapshot.data();
       if (data != null &&
           data['status'] == 'accepted' &&
@@ -220,7 +218,7 @@ class DriverHomeController extends ChangeNotifier {
     _resetRoute();
     notifyListeners();
     if (uid != null) {
-      await RideRepository(db).releaseDriver(uid!);
+      await DriverRepository().release(uid!);
     }
     if (_disposed) return;
     onMessage?.call(AppStrings.driverRideCancelledByClient);
@@ -236,8 +234,7 @@ class DriverHomeController extends ChangeNotifier {
   Future<void> endRide(RideStatus newStatus) async {
     final id = activeRideId;
     if (id == null) return;
-    await RideRepository(db)
-        .finishRide(rideId: id, status: newStatus, driverUid: uid);
+    await RideRepository().advance(id, newStatus);
     if (newStatus == RideStatus.completed) {
       try {
         await PaymentService.chargeCommission(rideId: id);
@@ -256,8 +253,7 @@ class DriverHomeController extends ChangeNotifier {
   Future<void> advanceRide(RideStatus newStatus) async {
     final id = activeRideId;
     if (id == null) return;
-    await RideRepository(db)
-        .updateRide(id, {'status': newStatus.firestoreValue});
+    await RideRepository().advance(id, newStatus);
     if (_disposed) return;
     _resetRoute();
     notifyListeners();

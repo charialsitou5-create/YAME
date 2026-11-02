@@ -1,21 +1,31 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
-import 'user_repository.dart';
+import 'doc.dart';
 
-/// Accès Firestore au portefeuille chauffeur `driver_profiles/{uid}/wallet/current`.
+/// Accès en lecture au portefeuille chauffeur `driver_wallets` (les écritures passent par le serveur).
 class WalletRepository {
-  WalletRepository([FirebaseFirestore? firestore])
-      : _db = firestore ?? FirebaseFirestore.instance;
+  WalletRepository._();
 
-  final FirebaseFirestore _db;
+  /// Pour les sous-classes de test (faux dépôts en mémoire).
+  @protected
+  WalletRepository.forTesting();
 
-  DocumentReference<Json> walletRef(String uid) => _db
-      .collection('driver_profiles')
-      .doc(uid)
-      .collection('wallet')
-      .doc('current');
+  /// Remplace le dépôt réel dans les tests.
+  @visibleForTesting
+  static WalletRepository? debugOverride;
 
-  Stream<DocumentSnapshot<Json>> watchWallet(String uid) => walletRef(uid).snapshots();
+  factory WalletRepository() => debugOverride ?? WalletRepository._();
 
-  Future<DocumentSnapshot<Json>> getWallet(String uid) => walletRef(uid).get();
+  SupabaseClient get _db => supabase;
+
+  Stream<Doc> watchWallet(String uid) => _db
+      .from('driver_wallets')
+      .stream(primaryKey: ['driver_uid'])
+      .eq('driver_uid', uid)
+      .map((rows) => rows.isEmpty ? Doc(uid) : Doc(uid, rowToDoc(rows.first)));
+
+  Future<Doc> getWallet(String uid) async {
+    final row = await _db.from('driver_wallets').select().eq('driver_uid', uid).maybeSingle();
+    return row == null ? Doc(uid) : Doc(uid, rowToDoc(row));
+  }
 }

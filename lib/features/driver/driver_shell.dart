@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -37,7 +36,7 @@ class _DriverShellState extends State<DriverShell> {
 
     final uid = FirebaseAuth.instance.currentUser?.uid;
 
-    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+    return StreamBuilder<Doc>(
       stream: uid == null
           ? null
           : UserRepository().watchUser(uid),

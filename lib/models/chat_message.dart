@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../repositories/doc.dart';
 
 enum ChatMessageType {
   text,
@@ -43,11 +43,10 @@ class ChatMessage {
       if (locationAddress != null) 'locationAddress': locationAddress,
       if (latitude != null) 'latitude': latitude,
       if (longitude != null) 'longitude': longitude,
-      'timestamp': FieldValue.serverTimestamp(),
     };
   }
 
-  factory ChatMessage.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
+  factory ChatMessage.fromDoc(Doc doc) {
     final data = doc.data()!;
     final timestamp = data['timestamp'];
     return ChatMessage(
@@ -58,7 +57,7 @@ class ChatMessage {
       locationAddress: data['locationAddress'] as String?,
       latitude: (data['latitude'] as num?)?.toDouble(),
       longitude: (data['longitude'] as num?)?.toDouble(),
-      timestamp: timestamp is Timestamp ? timestamp.toDate() : null,
+      timestamp: timestamp is String ? DateTime.tryParse(timestamp)?.toLocal() : null,
     );
   }
 }

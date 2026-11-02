@@ -1,107 +1,126 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 import '../models/ride_request.dart';
-import 'driver_repository.dart';
-import 'user_repository.dart';
+import 'doc.dart';
 
-/// Accès Firestore à `ride_requests` (+ messages) et aux signalements.
+/// Accès à `ride_requests` et `ride_messages`. Les transitions de course passent par des
+/// fonctions Postgres (une par transition autorisée) : le client ne peut rien faire d'autre.
 class RideRepository {
-  RideRepository([FirebaseFirestore? firestore])
-      : _db = firestore ?? FirebaseFirestore.instance;
+  RideRepository._();
 
-  final FirebaseFirestore _db;
+  /// Pour les sous-classes de test (faux dépôts en mémoire).
+  @protected
+  RideRepository.forTesting();
 
-  CollectionReference<Json> get _rides => _db.collection('ride_requests');
+  /// Remplace le dépôt réel dans les tests.
+  @visibleForTesting
+  static RideRepository? debugOverride;
 
-  /// Référence d'une course ; sans [id], un identifiant est généré.
-  DocumentReference<Json> rideRef([String? id]) => id == null ? _rides.doc() : _rides.doc(id);
+  factory RideRepository() => debugOverride ?? RideRepository._();
 
-  CollectionReference<Json> messages(String? rideId) => rideRef(rideId).collection('messages');
+  SupabaseClient get _db => supabase;
 
-  Stream<DocumentSnapshot<Json>> watchRide(String? id) => rideRef(id).snapshots();
+  Stream<Doc> watchRide(String? id) {
+    if (id == null) return const Stream.empty();
+    return _db
+        .from('ride_requests')
+        .stream(primaryKey: ['id'])
+        .eq('id', id)
+        .map((rows) => rows.isEmpty ? Doc(id) : Doc(id, rideRowToDoc(rows.first)));
+  }
 
-  Future<void> updateRide(String id, Json data) => rideRef(id).update(data);
-
-  /// Courses du client dont le statut est dans [statuses] (au plus [limit]).
-  Stream<QuerySnapshot<Json>> watchClientRidesWithStatus(
-    String clientUid,
-    List<String> statuses, {
-    int limit = 1,
-  }) =>
-      _rides
-          .where('clientUid', isEqualTo: clientUid)
-          .where('status', whereIn: statuses)
-          .limit(limit)
-          .snapshots();
+  /// Courses du client dont le statut est dans [statuses] (les plus récentes, au plus [limit]).
+  Stream<DocList> watchClientRidesWithStatus(String clientUid, List<String> statuses, {int limit = 1}) => _db
+          .from('ride_requests')
+          .stream(primaryKey: ['id'])
+          .eq('client_uid', clientUid)
+          .map((rows) {
+        final kept = rows.where((r) => statuses.contains(r['status'])).toList()
+          ..sort((a, b) => '${b['created_at']}'.compareTo('${a['created_at']}'));
+        return DocList([for (final r in kept.take(limit)) Doc(r['id'] as String, rideRowToDoc(r))]);
+      });
 
   /// Course actuellement proposée (en recherche) au chauffeur [driverUid].
-  Stream<QuerySnapshot<Json>> watchOfferedRide(String driverUid) => _rides
-      .where('offeredUid', isEqualTo: driverUid)
-      .where('status', isEqualTo: RideStatus.searching.firestoreValue)
-      .limit(1)
-      .snapshots();
+  Stream<DocList> watchOfferedRide(String driverUid) => _db
+          .from('ride_requests')
+          .stream(primaryKey: ['id'])
+          .eq('offered_uid', driverUid)
+          .map((rows) {
+        final kept = rows.where((r) => r['status'] == RideStatus.searching.firestoreValue).take(1);
+        return DocList([for (final r in kept) Doc(r['id'] as String, rideRowToDoc(r))]);
+      });
 
-  /// Libère le chauffeur : révoque l'accès du client à sa position live et
-  /// vide `driverActiveRideId` (sans toucher au statut de la course).
-  Future<void> releaseDriver(String driverUid) {
-    final batch = _db.batch();
-    _releaseDriverInto(batch, driverUid);
-    return batch.commit();
+  /// Crée la demande de course (et marque le client comme ayant une course active) ; renvoie son id.
+  Future<String> createRequest({required Json data}) async {
+    final pickup = data['pickup'] as Map;
+    final destination = data['destination'] as Map;
+    final id = await _db.rpc('create_ride', params: {
+      'p_pickup_lat': pickup['lat'],
+      'p_pickup_lng': pickup['lng'],
+      'p_pickup_address': data['pickupAddress'],
+      'p_destination_lat': destination['lat'],
+      'p_destination_lng': destination['lng'],
+      'p_destination_address': data['destinationAddress'],
+      'p_vehicle_type': data['vehicleType'],
+      'p_client_name': data['clientName'],
+      'p_price': data['price'],
+      'p_recipient_name': data['recipientName'],
+      'p_recipient_phone': data['recipientPhone'],
+      'p_recipient_instructions': data['recipientInstructions'],
+      'p_contact_requester_instead': data['contactRequesterInstead'] == true,
+    });
+    return id as String;
   }
 
-  /// Termine/annule la course [rideId] avec [status] puis libère le chauffeur
-  /// [driverUid] (si connu), le tout dans un seul batch.
-  Future<void> finishRide({
-    required String rideId,
-    required RideStatus status,
-    String? driverUid,
-  }) {
-    final batch = _db.batch()
-      ..update(rideRef(rideId), {'status': status.firestoreValue});
-    if (driverUid != null) _releaseDriverInto(batch, driverUid);
-    return batch.commit();
+  /// Annule la course côté client et libère `client_active_ride_id`.
+  Future<void> cancelByClient({required String rideId, required String reason, String? comment}) async {
+    await _db.rpc('client_cancel_ride', params: {'p_ride_id': rideId, 'p_reason': reason, 'p_comment': comment});
   }
 
-  void _releaseDriverInto(WriteBatch batch, String driverUid) {
-    batch.set(
-      DriverRepository(_db).locationRef(driverUid),
-      {'activeClientUid': FieldValue.delete()},
-      SetOptions(merge: true),
-    );
-    batch.update(UserRepository(_db).userRef(driverUid), {'driverActiveRideId': null});
+  /// Le chauffeur assigné fait avancer (ou termine/annule) sa course d'une étape ; la base libère
+  /// les deux parties et révoque l'accès à la position quand la course se termine.
+  Future<void> advance(String rideId, RideStatus status) async {
+    await _db.rpc('driver_advance_ride', params: {'p_ride_id': rideId, 'p_new_status': status.firestoreValue});
   }
 
-  /// Crée la demande de course et marque le client comme ayant une course
-  /// active, dans un seul batch. Retourne l'identifiant de la course.
-  Future<String> createRequest({required String clientUid, required Json data}) async {
-    final ref = rideRef();
-    final batch = _db.batch()
-      ..set(ref, data)
-      ..update(UserRepository(_db).userRef(clientUid), {'clientActiveRideId': ref.id});
-    await batch.commit();
-    return ref.id;
-  }
-
-  /// Annule la course côté client et libère `clientActiveRideId`.
-  Future<void> cancelByClient({
-    required String rideId,
-    required String clientUid,
-    required String reason,
+  Future<void> rate(
+    String rideId, {
+    required int rating,
     String? comment,
-  }) {
-    final batch = _db.batch()
-      ..update(rideRef(rideId), {
-        'status': RideStatus.cancelled.firestoreValue,
-        'cancelReason': reason,
-        'cancelComment': ?comment,
-      })
-      ..update(UserRepository(_db).userRef(clientUid), {'clientActiveRideId': null});
-    return batch.commit();
+    int? punctuality,
+    int? driving,
+    int? courtesy,
+    int? cleanliness,
+  }) async {
+    await _db.rpc('rate_ride', params: {
+      'p_ride_id': rideId,
+      'p_rating': rating,
+      'p_comment': comment,
+      'p_punctuality': punctuality,
+      'p_driving': driving,
+      'p_courtesy': courtesy,
+      'p_cleanliness': cleanliness,
+    });
   }
 
-  WriteBatch batch() => _db.batch();
+  // ---------------------------------------------------------------- messages
 
-  /// Crée un signalement et renvoie son id.
-  Future<String> addIncident(Json data) async =>
-      (await _db.collection('incidents').add(data)).id;
+  Stream<DocList> watchMessages(String rideId) => _db
+      .from('ride_messages')
+      .stream(primaryKey: ['id'])
+      .eq('ride_id', rideId)
+      .order('created_at', ascending: false)
+      .map((rows) => DocList([for (final r in rows) Doc(r['id'] as String, messageRowToDoc(r))]));
+
+  Future<void> sendMessage(String rideId, Json message) async {
+    await _db.from('ride_messages').insert({
+      'ride_id': rideId,
+      'sender_uid': message['senderUid'],
+      'type': message['type'],
+      'text': message['text'],
+      'location_address': message['locationAddress'],
+      'latitude': message['latitude'],
+      'longitude': message['longitude'],
+    });
+  }
 }

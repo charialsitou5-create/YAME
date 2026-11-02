@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:yame/repositories/doc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
@@ -34,7 +34,7 @@ class _RideChatScreenState extends State<RideChatScreen> {
     super.dispose();
   }
 
-  CollectionReference<Map<String, dynamic>> get _messages => RideRepository().messages(widget.ride.id);
+  final _rides = RideRepository();
 
   void _showComingSoon() {
     ScaffoldMessenger.of(
@@ -49,7 +49,8 @@ class _RideChatScreenState extends State<RideChatScreen> {
 
     _textController.clear();
     try {
-      await _messages.add(
+      await _rides.sendMessage(
+        widget.ride.id!,
         ChatMessage(senderUid: uid, type: ChatMessageType.text, text: text).toMap(),
       );
     } catch (_) {
@@ -93,7 +94,8 @@ class _RideChatScreenState extends State<RideChatScreen> {
         // adresse facultative : le point envoyé reste utile sans elle.
       }
 
-      await _messages.add(
+      await _rides.sendMessage(
+        widget.ride.id!,
         ChatMessage(
           senderUid: uid,
           type: ChatMessageType.location,
@@ -129,7 +131,7 @@ class _RideChatScreenState extends State<RideChatScreen> {
             ],
           ),
         ),
-        StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+        StreamBuilder<Doc>(
           stream: widget.ride.driverUid == null
               ? null
               : DriverRepository().watchProfile(widget.ride.driverUid!),
@@ -157,8 +159,8 @@ class _RideChatScreenState extends State<RideChatScreen> {
           },
         ),
         Expanded(
-          child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-            stream: _messages.orderBy('timestamp', descending: true).snapshots(),
+          child: StreamBuilder<DocList>(
+            stream: _rides.watchMessages(widget.ride.id!),
             builder: (context, snapshot) {
               final docs = snapshot.data?.docs ?? [];
               if (docs.isEmpty) {

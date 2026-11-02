@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -75,7 +74,7 @@ class _NotificationsToggleRowState extends State<_NotificationsToggleRow> {
         await NotificationService().initializeAndRegisterToken();
       } else {
         await UserRepository().updateUser(widget.uid, {
-          'fcmToken': FieldValue.delete(),
+          'fcmToken': null,
         });
       }
     } finally {
@@ -85,7 +84,7 @@ class _NotificationsToggleRowState extends State<_NotificationsToggleRow> {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+    return StreamBuilder<Doc>(
       stream: UserRepository().watchUser(widget.uid),
       builder: (context, snapshot) {
         final enabled = snapshot.data?.data()?['fcmToken'] != null;

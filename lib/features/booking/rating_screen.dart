@@ -44,14 +44,15 @@ class _RatingScreenState extends State<RatingScreen> {
     });
 
     try {
-      await RideRepository().updateRide(widget.rideId, {
-        'rating': _overall,
-        if (_commentController.text.trim().isNotEmpty) 'ratingComment': _commentController.text.trim(),
-        if (_punctuality > 0) 'ratingPunctuality': _punctuality,
-        if (_driving > 0) 'ratingDriving': _driving,
-        if (_courtesy > 0) 'ratingCourtesy': _courtesy,
-        if (_cleanliness > 0) 'ratingCleanliness': _cleanliness,
-      });
+      await RideRepository().rate(
+        widget.rideId,
+        rating: _overall,
+        comment: _commentController.text.trim().isEmpty ? null : _commentController.text.trim(),
+        punctuality: _punctuality > 0 ? _punctuality : null,
+        driving: _driving > 0 ? _driving : null,
+        courtesy: _courtesy > 0 ? _courtesy : null,
+        cleanliness: _cleanliness > 0 ? _cleanliness : null,
+      );
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(AppStrings.ratingThanks)));

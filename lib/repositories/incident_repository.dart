@@ -1,53 +1,64 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 import '../models/my_report.dart';
-import 'user_repository.dart';
+import 'doc.dart';
 
 /// Signalements de l'utilisateur et réponses de l'équipe.
 ///
-/// `incidents/{id}` n'est pas lisible par l'app ; on lit uniquement
-/// `incidents/{id}/replies` (règle : auteur du signalement) pour les ids
-/// mémorisés dans `users/{uid}.myReports` (voir [MyReport]).
+/// `incidents` n'est pas lisible par l'app ; on lit uniquement `incident_replies`
+/// (RLS : auteur du signalement) pour les ids mémorisés dans `users.my_reports`
+/// (voir [MyReport]). La création passe par la fonction `submit_incident`, qui
+/// mémorise aussi l'entrée dans `my_reports`.
 class IncidentRepository {
-  IncidentRepository([FirebaseFirestore? firestore])
-      : _db = firestore ?? FirebaseFirestore.instance;
+  IncidentRepository._();
 
-  final FirebaseFirestore _db;
+  /// Pour les sous-classes de test (faux dépôts en mémoire).
+  @protected
+  IncidentRepository.forTesting();
 
-  CollectionReference<Json> repliesRef(String incidentId) =>
-      _db.collection('incidents').doc(incidentId).collection('replies');
+  /// Remplace le dépôt réel dans les tests.
+  @visibleForTesting
+  static IncidentRepository? debugOverride;
 
-  Query<Json> _repliesAsc(String incidentId) =>
-      repliesRef(incidentId).orderBy('createdAt');
+  factory IncidentRepository() => debugOverride ?? IncidentRepository._();
+
+  SupabaseClient get _db => supabase;
 
   /// Fil complet des réponses, plus anciennes en premier.
-  Stream<List<IncidentReply>> watchReplies(String incidentId) =>
-      _repliesAsc(incidentId).snapshots().map(
-            (s) => [for (final d in s.docs) IncidentReply.fromMap(d.id, d.data())],
-          );
+  Stream<List<IncidentReply>> watchReplies(String incidentId) => _db
+      .from('incident_replies')
+      .stream(primaryKey: ['id'])
+      .eq('incident_id', incidentId)
+      .order('created_at', ascending: true)
+      .map((rows) => [
+            for (final r in rows) IncidentReply.fromMap(r['id'] as String, {...rowToDoc(r), 'createdAt': r['created_at']}),
+          ]);
 
   /// Vrai dès qu'au moins une réponse existe (erreur de lecture = faux).
-  Stream<bool> watchHasReply(String incidentId) => repliesRef(incidentId)
-      .limit(1)
-      .snapshots()
-      .map((s) => s.docs.isNotEmpty)
+  Stream<bool> watchHasReply(String incidentId) => _db
+      .from('incident_replies')
+      .stream(primaryKey: ['id'])
+      .eq('incident_id', incidentId)
+      .map((rows) => rows.isNotEmpty)
       .handleError((_) {}, test: (_) => true);
 
-  /// Mémorise un signalement envoyé (les [MyReport.maxStored] plus récents).
-  Future<void> rememberReport(String uid, MyReport report) async {
-    final ref = UserRepository(_db).userRef(uid);
-    await _db.runTransaction((tx) async {
-      final snap = await tx.get(ref);
-      final current = MyReport.listFromUserData(snap.data());
-      final next = [report, ...current.where((r) => r.id != report.id)]
-          .take(MyReport.maxStored)
-          .map((r) => r.toMap())
-          .toList();
-      if (snap.exists) {
-        tx.update(ref, {'myReports': next});
-      } else {
-        tx.set(ref, {'myReports': next});
-      }
+  /// Enregistre un signalement et renvoie son id.
+  Future<String> submit({
+    required String kind,
+    required String category,
+    required String message,
+    String? reporterRole,
+    String? reporterName,
+    String? rideId,
+  }) async {
+    final id = await _db.rpc('submit_incident', params: {
+      'p_kind': kind,
+      'p_category': category,
+      'p_message': message,
+      'p_reporter_role': reporterRole,
+      'p_ride_id': rideId,
+      'p_reporter_name': reporterName,
     });
+    return id as String;
   }
 }

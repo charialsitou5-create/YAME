@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
@@ -30,10 +29,7 @@ class NotificationService {
   }
 
   Future<void> _writeToken(String uid, String token) {
-    return UserRepository().setUser(uid, {
-      'fcmToken': token,
-      'lastTokenUpdate': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    return UserRepository().setUser(uid, {'fcmToken': token});
   }
 
   /// Demande les autorisations et enregistre le token FCM dans le profil Firestore

@@ -1,13 +1,12 @@
-import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:yame/models/ride_request.dart';
 import 'package:yame/models/vehicle_type.dart';
+import 'package:yame/repositories/doc.dart';
 
 void main() {
   group('RideRequest.price', () {
     test('toMap/fromDoc round-trips the price quoted to the client at booking', () async {
-      final db = FakeFirebaseFirestore();
       const request = RideRequest(
         clientUid: 'cli1',
         clientName: 'Client Test',
@@ -20,9 +19,7 @@ void main() {
         price: 2500,
       );
 
-      final ref = db.collection('ride_requests').doc('r1');
-      await ref.set(request.toMap());
-      final roundTripped = RideRequest.fromDoc(await ref.get());
+      final roundTripped = RideRequest.fromDoc(Doc('r1', request.toMap()));
 
       expect(roundTripped.price, 2500);
     });
@@ -43,9 +40,7 @@ void main() {
     });
 
     test('fromDoc defaults price to null for a ride created before this field existed', () async {
-      final db = FakeFirebaseFirestore();
-      final ref = db.collection('ride_requests').doc('legacy');
-      await ref.set({
+      final doc = Doc('legacy', {
         'clientUid': 'cli1',
         'clientName': 'Client Test',
         'pickup': {'lat': -4.78, 'lng': 11.86},
@@ -54,7 +49,7 @@ void main() {
         'status': 'searching',
       });
 
-      final ride = RideRequest.fromDoc(await ref.get());
+      final ride = RideRequest.fromDoc(doc);
 
       expect(ride.price, isNull);
     });

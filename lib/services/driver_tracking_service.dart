@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
@@ -84,20 +83,13 @@ class DriverTrackingService {
     });
   }
 
-  /// Met à jour la position GPS du chauffeur dans sa sous-collection privée
-  /// `driver_profiles/{uid}/location/current` (jamais dans la fiche
+  /// Met à jour la position GPS du chauffeur dans sa table privée
+  /// `driver_locations` (jamais dans la fiche
   /// principale, lisible par tout utilisateur connecté).
   Future<void> _updateDriverLocationInFirestore(String uid, Position position_) async {
     position.value = LatLng(position_.latitude, position_.longitude);
     try {
-      await DriverRepository().locationRef(uid)
-          .set({
-        'lat': position_.latitude,
-        'lng': position_.longitude,
-        'heading': position_.heading,
-        'speed': position_.speed,
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      await DriverRepository().publishLocation(uid, position_.latitude, position_.longitude, position_.heading);
     } catch (e, st) {
       ErrorReporter.report(e, st, context: 'driver_tracking.publish_location');
       }

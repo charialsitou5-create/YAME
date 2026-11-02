@@ -1,27 +1,71 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
-import 'user_repository.dart';
+import 'doc.dart';
 
-/// Accès Firestore à `driver_profiles/{uid}` et ses sous-documents.
+/// Colonnes de `driver_profiles` écrites par l'app (statut et notation : réservés à l'admin).
+const _profileColumns = {'vehicleType', 'model', 'year', 'plate', 'seats', 'color', 'status', 'createdAt'};
+
+/// Accès à `driver_profiles`, `driver_locations` et `driver_documents`.
 class DriverRepository {
-  DriverRepository([FirebaseFirestore? firestore])
-      : _db = firestore ?? FirebaseFirestore.instance;
+  DriverRepository._();
 
-  final FirebaseFirestore _db;
+  /// Pour les sous-classes de test (faux dépôts en mémoire).
+  @protected
+  DriverRepository.forTesting();
 
-  DocumentReference<Json> profileRef(String uid) =>
-      _db.collection('driver_profiles').doc(uid);
+  /// Remplace le dépôt réel dans les tests.
+  @visibleForTesting
+  static DriverRepository? debugOverride;
 
-  /// `driver_profiles/{uid}/location/current` : position temps réel du chauffeur.
-  DocumentReference<Json> locationRef(String uid) =>
-      profileRef(uid).collection('location').doc('current');
+  factory DriverRepository() => debugOverride ?? DriverRepository._();
 
-  DocumentReference<Json> documentsRef(String uid) =>
-      profileRef(uid).collection('documents').doc('current');
+  SupabaseClient get _db => supabase;
 
-  Stream<DocumentSnapshot<Json>> watchProfile(String uid) => profileRef(uid).snapshots();
+  Stream<Doc> watchProfile(String uid) => _db
+      .from('driver_profiles')
+      .stream(primaryKey: ['uid'])
+      .eq('uid', uid)
+      .map((rows) => rows.isEmpty ? Doc(uid) : Doc(uid, rowToDoc(rows.first)));
 
-  Stream<DocumentSnapshot<Json>> watchLocation(String uid) => locationRef(uid).snapshots();
+  Future<Doc> getProfile(String uid) async {
+    final row = await _db.from('driver_profiles').select().eq('uid', uid).maybeSingle();
+    return row == null ? Doc(uid) : Doc(uid, rowToDoc(row));
+  }
 
-  Future<DocumentSnapshot<Json>> getProfile(String uid) => profileRef(uid).get();
+  /// Position live du chauffeur (lisible par le client de sa course active uniquement, via la RLS).
+  Stream<Doc> watchLocation(String uid) => _db
+      .from('driver_locations')
+      .stream(primaryKey: ['driver_uid'])
+      .eq('driver_uid', uid)
+      .map((rows) => rows.isEmpty ? Doc(uid) : Doc(uid, rowToDoc(rows.first)));
+
+  /// Publie la position (n'écrase pas `active_client_uid`, posé par le serveur).
+  Future<void> publishLocation(String uid, double lat, double lng, double? heading) async {
+    await _db.from('driver_locations').upsert(
+      {'driver_uid': uid, 'lat': lat, 'lng': lng, 'heading': heading, 'updated_at': nowIso()},
+      onConflict: 'driver_uid',
+    );
+  }
+
+  /// Crée la fiche véhicule (statut `pending_verification`), le portefeuille à 0 et,
+  /// s'il y en a, les documents d'identité — dans l'ordre imposé par les clés étrangères.
+  Future<void> registerVehicle(String uid, Json vehicle, Json documents) async {
+    await _db.from('driver_profiles').upsert({'uid': uid, ...docToRow(vehicle, _profileColumns)}, onConflict: 'uid');
+    await _db.from('driver_wallets').upsert({'driver_uid': uid, 'balance': 0}, onConflict: 'driver_uid', ignoreDuplicates: true);
+    if (documents.isNotEmpty) {
+      await _db.from('driver_documents').upsert({
+        'driver_uid': uid,
+        if (documents['photoUrls'] != null) 'photo_urls': documents['photoUrls'],
+        if (documents['registrationCardUrl'] != null) 'registration_card_url': documents['registrationCardUrl'],
+        if (documents['licenseUrl'] != null) 'license_url': documents['licenseUrl'],
+        'updated_at': nowIso(),
+      }, onConflict: 'driver_uid');
+    }
+  }
+
+  /// Libère le chauffeur : plus de course active ni de client autorisé à voir sa position.
+  Future<void> release(String uid) async {
+    await _db.from('users').update({'driver_active_ride_id': null}).eq('uid', uid);
+    await _db.from('driver_locations').update({'active_client_uid': null}).eq('driver_uid', uid);
+  }
 }

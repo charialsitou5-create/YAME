@@ -39,12 +39,10 @@ dependencies:
   flutter_svg: ^2.2.1
   firebase_core: ^4.14.0
   firebase_auth: ^6.6.0
-  cloud_firestore: ^6.9.0
   geolocator: ^14.0.3
   geocoding: ^5.0.0
   image_picker: ^1.1.2
   url_launcher: ^6.3.1
-  firebase_storage: ^13.5.0
   flutter_map: ^8.3.2
   latlong2: ^0.10.1
   firebase_messaging: ^16.6.0
@@ -52,6 +50,7 @@ dependencies:
   flutter_facebook_auth: ^7.2.0
   http: ^1.6.0
   firebase_crashlytics: ^5.4.0
+  supabase_flutter: ^2.18.3
 
 dev_dependencies:
   flutter_test:
@@ -63,7 +62,6 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
-  fake_cloud_firestore: ^4.3.0
   firebase_core_platform_interface: ^8.1.1
 flutter:
 

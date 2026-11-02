@@ -46,7 +46,7 @@ class FarePricing {
   VehicleFare forVehicle(VehicleType type) => type == VehicleType.car ? car : moto;
 }
 
-/// Charge la grille depuis Firestore ; n'échoue jamais (secours : [FarePricing.defaults]).
+/// Charge la grille depuis `app_config` ; n'échoue jamais (secours : [FarePricing.defaults]).
 Future<FarePricing> loadFarePricing() async {
   try {
     final snap = await ConfigRepository()

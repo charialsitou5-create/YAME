@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -11,7 +11,6 @@ import '../../models/driver_vehicle.dart';
 import '../../models/vehicle_type.dart';
 import '../../repositories/driver_repository.dart';
 import '../../repositories/user_repository.dart';
-import '../../repositories/wallet_repository.dart';
 import 'wizard/documents_step.dart';
 import 'wizard/images_step.dart';
 import 'wizard/info_step.dart';
@@ -101,9 +100,12 @@ class _VehicleRegistrationWizardState extends State<VehicleRegistrationWizard> {
   /// que d'échouer entièrement à cause d'un problème d'upload.
   Future<String?> _uploadDoc(String uid, String path, File file) async {
     try {
-      final ref = FirebaseStorage.instance.ref('driver_documents/$uid/$path');
-      await ref.putFile(file);
-      return await ref.getDownloadURL();
+      // Bucket privé : on garde le chemin (pas d'URL), l'admin génère un lien signé à la consultation.
+      final objectPath = '$uid/$path';
+      await Supabase.instance.client.storage
+          .from('driver-documents')
+          .upload(objectPath, file, fileOptions: const FileOptions(upsert: true, contentType: 'image/jpeg'));
+      return objectPath;
     } catch (_) {
       return null;
     }
@@ -145,18 +147,8 @@ class _VehicleRegistrationWizardState extends State<VehicleRegistrationWizard> {
         licenseUrl: licenseUrl,
       );
 
-      await DriverRepository().profileRef(uid).set(vehicle.toMap());
-      // Solde initialisé à 0 dans sa propre sous-collection, jamais dans
-      // la fiche principale (voir firestore.rules : driver_profiles/wallet).
-      await WalletRepository().walletRef(uid)
-          .set({'balance': 0});
-      // Documents d'identité (carte grise, permis, photos) dans leur propre
-      // sous-collection privée (voir firestore.rules : driver_profiles/documents).
-      final documentsMap = vehicle.toDocumentsMap();
-      if (documentsMap.isNotEmpty) {
-        await DriverRepository().documentsRef(uid)
-            .set(documentsMap);
-      }
+      // Fiche véhicule, portefeuille à 0 et documents d'identité (table privée) en un appel.
+      await DriverRepository().registerVehicle(uid, vehicle.toMap(), vehicle.toDocumentsMap());
       await UserRepository().updateUser(uid, {
         'vehicleRegistered': true,
       });

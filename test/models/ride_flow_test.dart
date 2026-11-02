@@ -1,15 +1,13 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:yame/models/ride_request.dart';
 import 'package:yame/models/vehicle_type.dart';
+import 'package:yame/repositories/doc.dart';
 
 /// Cycle de vie d'une course vu par le modèle : mêmes transitions et mêmes
-/// champs que ceux autorisés par firestore.rules (voir test-rules/).
+/// champs que ceux autorisés par les fonctions SQL de supabase/migrations.
 void main() {
-  late FakeFirebaseFirestore db;
-  late DocumentReference<Map<String, dynamic>> ref;
+  late Map<String, dynamic> data;
 
   const request = RideRequest(
     clientUid: 'cli1',
@@ -23,12 +21,10 @@ void main() {
     price: 1500,
   );
 
-  Future<RideRequest> load() async => RideRequest.fromDoc(await ref.get());
+  Future<RideRequest> load() async => RideRequest.fromDoc(Doc('r1', Map.of(data)));
 
   setUp(() async {
-    db = FakeFirebaseFirestore();
-    ref = db.collection('ride_requests').doc('r1');
-    await ref.set(request.toMap());
+    data = request.toMap();
   });
 
   test('création : demande en recherche, sans chauffeur ni offre', () async {
@@ -42,24 +38,23 @@ void main() {
   });
 
   test('parcours complet : acceptée, arrivée, en cours, terminée, notée', () async {
-    await ref.update({'status': 'accepted', 'driverUid': 'drv1', 'driverName': 'Paul'});
+    data.addAll({'status': 'accepted', 'driverUid': 'drv1', 'driverName': 'Paul'});
     var r = await load();
     expect(r.status, RideStatus.accepted);
     expect(r.driverUid, 'drv1');
     expect(r.driverName, 'Paul');
 
-    await ref.update({'status': RideStatus.arrived.firestoreValue});
+    data.addAll({'status': RideStatus.arrived.firestoreValue});
     expect((await load()).status, RideStatus.arrived);
 
-    await ref.update({'status': RideStatus.inProgress.firestoreValue});
+    data.addAll({'status': RideStatus.inProgress.firestoreValue});
     expect((await load()).status, RideStatus.inProgress);
 
-    await ref.update({'status': RideStatus.completed.firestoreValue});
+    data.addAll({'status': RideStatus.completed.firestoreValue});
     expect((await load()).status, RideStatus.completed);
 
-    await ref.update({'rating': 5, 'ratingComment': 'Top'});
-    final data = (await ref.get()).data()!;
-    expect(data['rating'], 5);
+    data.addAll({'rating': 5, 'ratingComment': 'Top'});
+        expect(data['rating'], 5);
     expect(data['ratingComment'], 'Top');
     r = await load();
     expect(r.status, RideStatus.completed, reason: 'noter ne change pas le statut');
@@ -67,10 +62,10 @@ void main() {
   });
 
   test('annulation par le client avec motif', () async {
-    await ref.update({'status': 'cancelled', 'cancelReason': 'changed_mind', 'cancelComment': 'RAS'});
+    data.addAll({'status': 'cancelled', 'cancelReason': 'changed_mind', 'cancelComment': 'RAS'});
     final r = await load();
     expect(r.status, RideStatus.cancelled);
-    expect((await ref.get()).data()!['cancelReason'], 'changed_mind');
+    expect(data['cancelReason'], 'changed_mind');
   });
 
   test('statut inconnu en base : retombe sur searching', () {
@@ -85,7 +80,7 @@ void main() {
 
   test('offre au chauffeur : offeredUid et expiration relus', () async {
     final expires = DateTime.utc(2026, 10, 8, 12);
-    await ref.update({'offeredUid': 'drv9', 'offerExpiresAt': expires.toIso8601String()});
+    data.addAll({'offeredUid': 'drv9', 'offerExpiresAt': expires.toIso8601String()});
     final r = await load();
     expect(r.offeredUid, 'drv9');
     expect(r.offerExpiresAt, expires);
@@ -105,8 +100,7 @@ void main() {
       recipientPhone: '060000000',
       contactRequesterInstead: true,
     );
-    await db.collection('ride_requests').doc('r2').set(other.toMap());
-    final r = RideRequest.fromDoc(await db.collection('ride_requests').doc('r2').get());
+    final r = RideRequest.fromDoc(Doc('r2', other.toMap()));
     expect(r.isForSomeoneElse, isTrue);
     expect(r.recipientName, 'Marie');
     expect(r.contactRequesterInstead, isTrue);

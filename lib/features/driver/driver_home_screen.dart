@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:yame/repositories/doc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -29,7 +29,6 @@ class DriverHomeScreen extends StatefulWidget {
     super.key,
     required this.vehicleType,
     required this.driverName,
-    @visibleForTesting this.firestore,
     @visibleForTesting this.uid,
     @visibleForTesting this.trackingService,
     @visibleForTesting this.routeFetcher,
@@ -38,8 +37,7 @@ class DriverHomeScreen extends StatefulWidget {
   final VehicleType vehicleType;
   final String driverName;
 
-  /// Surcharges pour les tests ; par défaut, les vrais services Firebase.
-  final FirebaseFirestore? firestore;
+  /// Surcharges pour les tests ; par défaut, les vrais services.
   final String? uid;
   final DriverTrackingService? trackingService;
 
@@ -58,19 +56,13 @@ class DriverHomeScreen extends StatefulWidget {
 
 class _DriverHomeScreenState extends State<DriverHomeScreen> {
   late final DriverHomeController _c;
-  FirebaseFirestore get _db => widget.firestore ?? FirebaseFirestore.instance;
-  String? get _uid =>
-      widget.uid ??
-      (widget.firestore != null
-          ? null
-          : FirebaseAuth.instance.currentUser?.uid);
+  String? get _uid => widget.uid ?? FirebaseAuth.instance.currentUser?.uid;
   final _mapController = MapController();
 
   @override
   void initState() {
     super.initState();
     _c = DriverHomeController(
-      db: _db,
       uid: _uid,
       trackingService: widget.trackingService ?? DriverTrackingService(),
       routeFetcher: widget.routeFetcher,
@@ -102,8 +94,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-          stream: uid == null ? null : WalletRepository(_db).watchWallet(uid),
+        child: StreamBuilder<Doc>(
+          stream: uid == null ? null : WalletRepository().watchWallet(uid),
           builder: (context, snapshot) {
             // Avant la première valeur du stream, `snapshot.data` est
             // `null` et `balance` retomberait à 0 — indiscernable d'un
@@ -179,7 +171,6 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                           onAdvance: _c.advanceRide,
                           onClientCancelled: _c.releaseCancelledRide,
                           onUnavailable: _c.clearActiveRide,
-                          firestore: _db,
                           eta: _c.route?.duration,
                         )
                       : !hasBalance
@@ -188,7 +179,6 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                       ? const OfflineNotice()
                       : RideOfferCard(
                           onRespond: _c.respondToOffer,
-                          firestore: _db,
                           uid: _uid,
                         ),
                 ),
@@ -198,7 +188,6 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                       const SizedBox(height: 8),
                       DriverMapPanel(
                         mapController: _mapController,
-                        firestore: _db,
                         uid: uid,
                         activeRideId: _c.activeRideId,
                         route: _c.route,

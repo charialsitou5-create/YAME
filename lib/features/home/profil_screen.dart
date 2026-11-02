@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -60,7 +59,7 @@ class ProfilScreen extends StatelessWidget {
     final uid = FirebaseAuth.instance.currentUser?.uid;
 
     return SafeArea(
-      child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      child: StreamBuilder<Doc>(
         stream: uid == null
             ? null
             : UserRepository().watchUser(uid),

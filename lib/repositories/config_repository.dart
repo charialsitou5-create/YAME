@@ -1,14 +1,27 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
-import 'user_repository.dart';
+import 'doc.dart';
 
-/// Accès Firestore à la configuration `app_config/*`.
+/// Accès à la configuration `app_config` (clé → valeur jsonb).
 class ConfigRepository {
-  ConfigRepository([FirebaseFirestore? firestore])
-      : _db = firestore ?? FirebaseFirestore.instance;
+  ConfigRepository._();
 
-  final FirebaseFirestore _db;
+  @protected
+  ConfigRepository.forTesting();
 
-  Future<DocumentSnapshot<Json>> getPricing() =>
-      _db.collection('app_config').doc('pricing').get();
+  @visibleForTesting
+  static ConfigRepository? debugOverride;
+
+  factory ConfigRepository() => debugOverride ?? ConfigRepository._();
+
+  Future<Doc> _get(String key) async {
+    final row = await supabase.from('app_config').select('value').eq('key', key).maybeSingle();
+    final value = row?['value'];
+    return Doc(key, value is Map ? Json.from(value) : null);
+  }
+
+  Future<Doc> getPricing() => _get('pricing');
+
+  /// Réglage d'exigence de l'e-mail vérifié (`app_config/auth`).
+  Future<Doc> getAuthPolicy() => _get('auth');
 }
