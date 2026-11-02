@@ -373,7 +373,15 @@ class AppStrings {
   static const wizardErrorRequired = 'Ce champ est obligatoire.';
   static const wizardErrorYearInvalid = 'Année invalide.';
   static const wizardErrorPhotoMissing =
-      'Veuillez ajouter au moins les photos principales.';
+      'Toutes les photos du véhicule sont obligatoires.';
+  static const wizardErrorPlateInvalid =
+      'Plaque invalide. Exemple : 271 KX 4.';
+  static const wizardPlateSpecial =
+      'Plaque spéciale, temporaire ou étrangère';
+  static const wizardErrorDocsMissing =
+      'La carte grise et le permis de conduire sont obligatoires.';
+  static const wizardErrorUpload =
+      'Une photo n\'a pas pu être envoyée. Vérifiez votre connexion et réessayez.';
   static const wizardImagePickError = 'Impossible d\'ouvrir la galerie.';
 
   // Messages (client)

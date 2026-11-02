@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants/app_strings.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/validators.dart';
 import '../../models/app_mode.dart';
 import '../../models/app_user.dart';
 import '../../models/vehicle_type.dart';
@@ -60,7 +61,7 @@ class _SignupScreenState extends State<SignupScreen> {
       final user = AppUser(
         uid: uid,
         name: _nameController.text.trim(),
-        phone: _phoneController.text.trim(),
+        phone: normalizeCongoPhone(_phoneController.text) ?? _phoneController.text.trim(),
         email: _emailController.text.trim(),
         activeMode: widget.vehicleType == null ? AppMode.client : AppMode.driver,
         driverVehicleType: widget.vehicleType,
@@ -243,7 +244,7 @@ class _SignupScreenState extends State<SignupScreen> {
                       ),
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) return AppStrings.errorRequired;
-                        if (value.trim().length < 8) return AppStrings.errorPhoneInvalid;
+                        if (normalizeCongoPhone(value) == null) return AppStrings.errorPhoneInvalid;
                         return null;
                       },
                     ),

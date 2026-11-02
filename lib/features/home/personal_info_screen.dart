@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants/app_strings.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/validators.dart';
 import '../../repositories/user_repository.dart';
 
 /// Édition des informations de compte (nom, téléphone) et changement de mot
@@ -48,7 +49,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
     try {
       await UserRepository().updateUser(uid, {
         'name': _nameController.text.trim(),
-        'phone': _phoneController.text.trim(),
+        'phone': normalizeCongoPhone(_phoneController.text) ?? _phoneController.text.trim(),
       });
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -106,7 +107,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                       if (value == null || value.trim().isEmpty) {
                         return AppStrings.errorRequired;
                       }
-                      if (value.trim().length < 8) return AppStrings.errorPhoneInvalid;
+                      if (normalizeCongoPhone(value) == null) return AppStrings.errorPhoneInvalid;
                       return null;
                     },
                   ),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants/app_strings.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/validators.dart';
 import '../../routes/app_routes.dart';
 import '../../repositories/user_repository.dart';
 
@@ -40,7 +41,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     try {
       final uid = FirebaseAuth.instance.currentUser!.uid;
       await UserRepository().updateUser(uid, {
-        'phone': _phoneController.text.trim(),
+        'phone': normalizeCongoPhone(_phoneController.text) ?? _phoneController.text.trim(),
       });
 
       if (!mounted) return;
@@ -94,7 +95,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                         if (value == null || value.trim().isEmpty) {
                           return AppStrings.errorRequired;
                         }
-                        if (value.trim().length < 8) {
+                        if (normalizeCongoPhone(value) == null) {
                           return AppStrings.errorPhoneInvalid;
                         }
                         return null;

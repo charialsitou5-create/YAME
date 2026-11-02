@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_strings.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/validators.dart';
 
 class InfoStep extends StatelessWidget {
   const InfoStep({
@@ -12,6 +13,8 @@ class InfoStep extends StatelessWidget {
     required this.yearController,
     required this.colorController,
     required this.plateController,
+    required this.specialPlate,
+    required this.onSpecialPlateChanged,
     required this.seats,
     required this.onSeatsChanged,
   });
@@ -22,6 +25,8 @@ class InfoStep extends StatelessWidget {
   final TextEditingController yearController;
   final TextEditingController colorController;
   final TextEditingController plateController;
+  final bool specialPlate;
+  final ValueChanged<bool> onSpecialPlateChanged;
   final int? seats;
   final ValueChanged<int?> onSeatsChanged;
 
@@ -112,11 +117,23 @@ class InfoStep extends StatelessWidget {
                   ? AppStrings.wizardFieldPlateCarHint
                   : AppStrings.wizardFieldPlateMotoHint,
             ),
-            validator: (v) => (v == null || v.trim().isEmpty)
-                ? AppStrings.wizardErrorRequired
-                : null,
+            validator: (v) {
+              if (v == null || v.trim().isEmpty) {
+                return AppStrings.wizardErrorRequired;
+              }
+              return isPlausiblePlate(v, special: specialPlate)
+                  ? null
+                  : AppStrings.wizardErrorPlateInvalid;
+            },
           ),
-          const SizedBox(height: 18),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+            title: const Text(AppStrings.wizardPlateSpecial),
+            value: specialPlate,
+            onChanged: onSpecialPlateChanged,
+          ),
+          const SizedBox(height: 10),
           const FieldLabel(AppStrings.wizardFieldSeats),
           DropdownButtonFormField<int>(
             initialValue: seats,

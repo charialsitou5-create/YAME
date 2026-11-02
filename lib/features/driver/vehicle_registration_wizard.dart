@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../core/constants/app_strings.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/validators.dart';
 import '../../models/driver_vehicle.dart';
 import '../../models/vehicle_type.dart';
 import '../../repositories/driver_repository.dart';
@@ -56,6 +57,7 @@ class _VehicleRegistrationWizardState extends State<VehicleRegistrationWizard> {
   final _colorController = TextEditingController();
   final _plateController = TextEditingController();
   int? _seats;
+  bool _specialPlate = false;
 
   final Map<String, File?> _photos = {};
   File? _registrationCardPhoto;
@@ -86,8 +88,24 @@ class _VehicleRegistrationWizardState extends State<VehicleRegistrationWizard> {
     }
   }
 
+  void _showError(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
   void _goNext() {
     if (_step == 0 && !_formKey.currentState!.validate()) return;
+    // Photos du véhicule : TOUTES obligatoires (l'admin doit pouvoir les vérifier).
+    if (_step == 1 && _photoLabels.any((l) => _photos[l] == null)) {
+      _showError(AppStrings.wizardErrorPhotoMissing);
+      return;
+    }
+    // Documents : carte grise et permis obligatoires.
+    if (_step == 2 && (_registrationCardPhoto == null || _licensePhoto == null)) {
+      _showError(AppStrings.wizardErrorDocsMissing);
+      return;
+    }
     if (_step < 2) {
       setState(() => _step += 1);
     } else {
@@ -95,9 +113,8 @@ class _VehicleRegistrationWizardState extends State<VehicleRegistrationWizard> {
     }
   }
 
-  /// `null` en cas d'échec (ex : Firebase Storage pas encore activé sur le
-  /// projet) — l'inscription doit pouvoir continuer sans document plutôt
-  /// que d'échouer entièrement à cause d'un problème d'upload.
+  /// `null` en cas d'échec d'envoi : l'inscription est alors INTERROMPUE
+  /// (voir [_submit]) — jamais d'inscription sans photos exploitables.
   Future<String?> _uploadDoc(String uid, String path, File file) async {
     try {
       // Bucket privé : on garde le chemin (pas d'URL), l'admin génère un lien signé à la consultation.
@@ -117,29 +134,39 @@ class _VehicleRegistrationWizardState extends State<VehicleRegistrationWizard> {
 
     setState(() => _submitting = true);
     try {
-      final photoUrls = <String, String>{};
-      for (final entry in _photos.entries) {
-        final file = entry.value;
-        if (file == null) continue;
-        final url = await _uploadDoc(uid, 'photo_${entry.key}.jpg', file);
-        if (url != null) photoUrls[entry.key] = url;
+      if (_photoLabels.any((l) => _photos[l] == null) ||
+          _registrationCardPhoto == null ||
+          _licensePhoto == null) {
+        _showError(AppStrings.wizardErrorPhotoMissing);
+        return;
       }
-      final registrationCardUrl = _registrationCardPhoto == null
-          ? null
-          : await _uploadDoc(
-              uid,
-              'registration_card.jpg',
-              _registrationCardPhoto!,
-            );
-      final licenseUrl = _licensePhoto == null
-          ? null
-          : await _uploadDoc(uid, 'license.jpg', _licensePhoto!);
+      final photoUrls = <String, String>{};
+      for (var i = 0; i < _photoLabels.length; i++) {
+        final label = _photoLabels[i];
+        // Chemin ASCII (les libellés ont des accents/apostrophes que le stockage peut refuser).
+        final url = await _uploadDoc(uid, 'photo_$i.jpg', _photos[label]!);
+        if (url == null) {
+          _showError(AppStrings.wizardErrorUpload);
+          return;
+        }
+        photoUrls[label] = url;
+      }
+      final registrationCardUrl = await _uploadDoc(
+        uid,
+        'registration_card.jpg',
+        _registrationCardPhoto!,
+      );
+      final licenseUrl = await _uploadDoc(uid, 'license.jpg', _licensePhoto!);
+      if (registrationCardUrl == null || licenseUrl == null) {
+        _showError(AppStrings.wizardErrorUpload);
+        return;
+      }
 
       final vehicle = DriverVehicle(
         vehicleType: widget.vehicleType,
         model: _modelController.text.trim(),
         year: int.parse(_yearController.text.trim()),
-        plate: _plateController.text.trim(),
+        plate: normalizePlate(_plateController.text),
         seats: _seats!,
         color: _isCar ? _colorController.text.trim() : null,
         photoUrls: photoUrls,
@@ -220,6 +247,11 @@ class _VehicleRegistrationWizardState extends State<VehicleRegistrationWizard> {
                       yearController: _yearController,
                       colorController: _colorController,
                       plateController: _plateController,
+                      specialPlate: _specialPlate,
+                      onSpecialPlateChanged: (v) {
+                        setState(() => _specialPlate = v);
+                        _formKey.currentState?.validate();
+                      },
                       seats: _seats,
                       onSeatsChanged: (value) => setState(() => _seats = value),
                     ),
