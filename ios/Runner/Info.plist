@@ -99,5 +99,9 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>Yame utilise l'appareil photo pour photographier votre véhicule et vos documents.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Yame accède à vos photos pour envoyer les images de votre véhicule et vos documents.</string>
 </dict>
 </plist>

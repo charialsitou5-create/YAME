@@ -80,10 +80,40 @@ class _VehicleRegistrationWizardState extends State<VehicleRegistrationWizard> {
     super.dispose();
   }
 
+  /// Propose l'appareil photo ou la galerie ; `null` si le chauffeur ferme le choix.
+  Future<ImageSource?> _chooseSource() {
+    return showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: AppColors.surfaceElevated,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_camera_rounded),
+              title: const Text(AppStrings.wizardPickCamera),
+              onTap: () => Navigator.of(sheetContext).pop(ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_rounded),
+              title: const Text(AppStrings.wizardPickGallery),
+              onTap: () => Navigator.of(sheetContext).pop(ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<File?> _pickImage() async {
+    final source = await _chooseSource();
+    if (source == null) return null;
     try {
       final file = await _picker.pickImage(
-        source: ImageSource.gallery,
+        source: source,
         imageQuality: 80,
       );
       return file == null ? null : File(file.path);

@@ -385,7 +385,9 @@ class AppStrings {
       'La carte grise et le permis de conduire sont obligatoires.';
   static const wizardErrorUpload =
       'Une photo n\'a pas pu être envoyée. Vérifiez votre connexion et réessayez.';
-  static const wizardImagePickError = 'Impossible d\'ouvrir la galerie.';
+  static const wizardImagePickError = 'Impossible d\'ouvrir l\'appareil photo ou la galerie.';
+  static const wizardPickCamera = 'Prendre une photo';
+  static const wizardPickGallery = 'Choisir dans la galerie';
 
   // Messages (client)
   static const messagesEmptyTitle = 'Aucune conversation';
