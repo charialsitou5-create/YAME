@@ -5,16 +5,21 @@ import '../../core/constants/app_strings.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/moderation_notice.dart';
 import '../../models/moderation.dart';
+import '../../models/vehicle_type.dart';
 import '../../routes/app_routes.dart';
 import '../home/profil_screen.dart';
+import 'vehicle_registration_wizard.dart';
 
 /// Affiché à la place de [DriverHomeScreen] tant que l'inscription du
 /// véhicule d'un chauffeur n'a pas été validée (ou a été refusée) par
 /// un admin — `driver_profiles/{uid}.status`.
 class DriverStatusScreen extends StatelessWidget {
-  const DriverStatusScreen({super.key, required this.rejected, this.suspension});
+  const DriverStatusScreen({super.key, required this.rejected, this.suspension, this.vehicleType});
 
   final bool rejected;
+
+  /// Si renseigné (et dossier en attente), propose d'envoyer ou de renvoyer les photos et documents.
+  final VehicleType? vehicleType;
 
   /// Si non nul, le chauffeur est suspendu : avis avec motif/échéance, et
   /// aucun accès au mode en ligne.
@@ -120,6 +125,20 @@ class DriverStatusScreen extends StatelessWidget {
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.bodyLarge,
                       ),
+                    if (!rejected && suspension == null && vehicleType != null) ...[
+                      const SizedBox(height: 24),
+                      OutlinedButton(
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => VehicleRegistrationWizard(
+                              vehicleType: vehicleType!,
+                              docsOnly: true,
+                            ),
+                          ),
+                        ),
+                        child: const Text(AppStrings.driverCompleteDocs),
+                      ),
+                    ],
                     const Spacer(),
                   ],
                 ),

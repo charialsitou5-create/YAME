@@ -366,6 +366,9 @@ class AppStrings {
   static const wizardDocRegistrationCar = 'Carte grise';
   static const wizardDocRegistrationMoto = 'Carte grise (recto)';
   static const wizardDocLicense = 'Permis de conduire';
+  static const driverCompleteDocs = 'Envoyer mes photos et documents';
+  static const wizardDocsSent =
+      'Documents envoyés, votre dossier est en cours de vérification.';
   static const wizardSubmitSuccess =
       'Inscription envoyée, en attente de validation.';
   static const wizardSubmitError =

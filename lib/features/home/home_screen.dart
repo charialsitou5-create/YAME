@@ -103,7 +103,7 @@ class _HomeScreenState extends State<HomeScreen> {
               return const DriverStatusScreen(rejected: true);
             }
             if (status != 'approved') {
-              return const DriverStatusScreen(rejected: false);
+              return DriverStatusScreen(rejected: false, vehicleType: vehicleType);
             }
             return DriverShell(vehicleType: vehicleType, driverName: user.name);
           },

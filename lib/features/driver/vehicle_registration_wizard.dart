@@ -20,9 +20,17 @@ import 'wizard/step_indicator.dart';
 /// Assistant d'inscription du véhicule en 3 étapes : informations,
 /// photos, documents — requis avant qu'un chauffeur reçoive des courses.
 class VehicleRegistrationWizard extends StatefulWidget {
-  const VehicleRegistrationWizard({super.key, required this.vehicleType});
+  const VehicleRegistrationWizard({
+    super.key,
+    required this.vehicleType,
+    this.docsOnly = false,
+  });
 
   final VehicleType vehicleType;
+
+  /// Chauffeur déjà inscrit dont le dossier est incomplet : on saute les
+  /// informations du véhicule et on n'envoie que les photos et documents.
+  final bool docsOnly;
 
   @override
   State<VehicleRegistrationWizard> createState() =>
@@ -48,7 +56,7 @@ class _VehicleRegistrationWizardState extends State<VehicleRegistrationWizard> {
           AppStrings.wizardPhotoOverview,
         ];
 
-  int _step = 0;
+  late int _step = widget.docsOnly ? 1 : 0;
   bool _submitting = false;
 
   final _formKey = GlobalKey<FormState>();
@@ -162,6 +170,20 @@ class _VehicleRegistrationWizardState extends State<VehicleRegistrationWizard> {
         return;
       }
 
+      if (widget.docsOnly) {
+        await DriverRepository().saveDocuments(uid, {
+          'photoUrls': photoUrls,
+          'registrationCardUrl': registrationCardUrl,
+          'licenseUrl': licenseUrl,
+        });
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text(AppStrings.wizardDocsSent)),
+        );
+        Navigator.of(context).popUntil((route) => route.isFirst);
+        return;
+      }
+
       final vehicle = DriverVehicle(
         vehicleType: widget.vehicleType,
         model: _modelController.text.trim(),
@@ -207,7 +229,7 @@ class _VehicleRegistrationWizardState extends State<VehicleRegistrationWizard> {
               child: Row(
                 children: [
                   IconButton(
-                    onPressed: () => _step == 0
+                    onPressed: () => _step == (widget.docsOnly ? 1 : 0)
                         ? Navigator.of(context).maybePop()
                         : setState(() => _step -= 1),
                     icon: const Icon(Icons.arrow_back_rounded),

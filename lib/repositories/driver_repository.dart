@@ -52,15 +52,19 @@ class DriverRepository {
   Future<void> registerVehicle(String uid, Json vehicle, Json documents) async {
     await _db.from('driver_profiles').upsert({'uid': uid, ...docToRow(vehicle, _profileColumns)}, onConflict: 'uid');
     await _db.from('driver_wallets').upsert({'driver_uid': uid, 'balance': 0}, onConflict: 'driver_uid', ignoreDuplicates: true);
-    if (documents.isNotEmpty) {
-      await _db.from('driver_documents').upsert({
-        'driver_uid': uid,
-        if (documents['photoUrls'] != null) 'photo_urls': documents['photoUrls'],
-        if (documents['registrationCardUrl'] != null) 'registration_card_url': documents['registrationCardUrl'],
-        if (documents['licenseUrl'] != null) 'license_url': documents['licenseUrl'],
-        'updated_at': nowIso(),
-      }, onConflict: 'driver_uid');
-    }
+    if (documents.isNotEmpty) await saveDocuments(uid, documents);
+  }
+
+  /// Écrit (ou remplace) les documents d'identité du chauffeur : photos du véhicule, carte grise, permis.
+  /// Aussi utilisé pour compléter un dossier incomplet sans toucher à la fiche véhicule.
+  Future<void> saveDocuments(String uid, Json documents) async {
+    await _db.from('driver_documents').upsert({
+      'driver_uid': uid,
+      if (documents['photoUrls'] != null) 'photo_urls': documents['photoUrls'],
+      if (documents['registrationCardUrl'] != null) 'registration_card_url': documents['registrationCardUrl'],
+      if (documents['licenseUrl'] != null) 'license_url': documents['licenseUrl'],
+      'updated_at': nowIso(),
+    }, onConflict: 'driver_uid');
   }
 
   /// Libère le chauffeur : plus de course active ni de client autorisé à voir sa position.
