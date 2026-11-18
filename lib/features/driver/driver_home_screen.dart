@@ -130,20 +130,14 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                       const SizedBox(height: 16),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: RechargeAccountCard(
-                          balance: balance,
+                        child: DriverAccountCards(
+                          rechargeBalance: balance,
+                          earningsBalance: earningsBalance,
                           onRecharge: () => Navigator.of(context).push(
                             MaterialPageRoute(
                               builder: (_) => const RechargeScreen(),
                             ),
                           ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: EarningsAccountCard(
-                          balance: earningsBalance,
                           onSeeEarnings: () => ScaffoldMessenger.of(context)
                               .showSnackBar(
                                 const SnackBar(

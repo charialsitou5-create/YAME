@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/constants/app_strings.dart';
+import '../../core/theme/app_colors.dart';
 import '../../core/widgets/email_verification_banner.dart';
 import '../../models/app_mode.dart';
 import '../../models/moderation.dart';
@@ -67,12 +71,28 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // Recréé uniquement sur « Réessayer » : un stream neuf à chaque build
+  // relancerait l'abonnement à chaque setState (bandeau e-mail…).
+  late Stream<Doc> _userStream =
+      UserRepository().watchUser(FirebaseAuth.instance.currentUser!.uid);
+
   Widget _buildBody(String uid) {
     return StreamBuilder<Doc>(
-      stream: UserRepository().watchUser(uid),
+      stream: _userStream,
       builder: (context, snapshot) {
         final data = snapshot.data?.data();
-        if (data == null) return const SizedBox.shrink();
+        if (data == null) {
+          // Avant : bloc vide => écran noir sans explication quand la base
+          // ne répond pas (panne Supabase du 2026-11-18).
+          // Clé liée au stream : « Réessayer » repart sur la roue + délai.
+          return _ProfileLoading(
+            key: ObjectKey(_userStream),
+            failed: snapshot.hasError,
+            onRetry: () => setState(
+              () => _userStream = UserRepository().watchUser(uid),
+            ),
+          );
+        }
 
         final user = AppUser.fromMap(uid, data);
         if (user.activeMode == AppMode.client) {
@@ -109,6 +129,79 @@ class _HomeScreenState extends State<HomeScreen> {
           },
         );
       },
+    );
+  }
+}
+
+/// Roue de chargement du profil ; passe au message d'erreur si le stream
+/// échoue, ou s'il n'a toujours rien renvoyé après [timeout] (une base
+/// injoignable peut réessayer en silence sans jamais émettre d'erreur).
+class _ProfileLoading extends StatefulWidget {
+  const _ProfileLoading({
+    super.key,
+    required this.failed,
+    required this.onRetry,
+  });
+
+  static const timeout = Duration(seconds: 15);
+
+  final bool failed;
+  final VoidCallback onRetry;
+
+  @override
+  State<_ProfileLoading> createState() => _ProfileLoadingState();
+}
+
+class _ProfileLoadingState extends State<_ProfileLoading> {
+  Timer? _timer;
+  bool _timedOut = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer(_ProfileLoading.timeout, () {
+      if (mounted) setState(() => _timedOut = true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.failed && !_timedOut) {
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.accent),
+      );
+    }
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.wifi_off_rounded,
+              color: AppColors.textSecondary,
+              size: 48,
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              AppStrings.homeLoadError,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppColors.textPrimary, fontSize: 16),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: widget.onRetry,
+              child: const Text(AppStrings.homeLoadRetry),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

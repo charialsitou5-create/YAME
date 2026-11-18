@@ -235,7 +235,7 @@ class AppStrings {
   // Tableau de bord chauffeur (aperçu)
   static const driverDashboardTitle = 'Chauffeur';
   static const driverDashboardRechargeAccount = 'Compte Recharge';
-  static const driverDashboardRechargeAccountSubtitle = '(Credits courses)';
+  static const driverDashboardRechargeAccountSubtitle = '(Crédits courses)';
   static const driverDashboardRechargeNonWithdrawable = 'Non retirables';
   static const driverDashboardRecharge = 'Recharger';
   static const driverDashboardEarningsAccount = 'Compte Chauffeur';
@@ -505,6 +505,10 @@ class AppStrings {
   static const forgotPasswordBackToLogin = 'Retour à la connexion';
 
   // Vérification de l'e-mail
+  // Chargement du profil à l'ouverture (home_screen.dart)
+  static const homeLoadError =
+      'Impossible de charger votre compte. Vérifiez votre connexion Internet.';
+  static const homeLoadRetry = 'Réessayer';
   static const emailVerifyBannerTitle = 'Vérifiez votre e-mail';
   static const emailVerifyBannerBody =
       'Un lien de confirmation a été envoyé à votre adresse e-mail.';
